@@ -25,9 +25,6 @@ import org.dcm4che3.io.DicomInputStream;
  * @author mathieu
  */
 
-
-
-
 /**
 
 --
@@ -53,12 +50,10 @@ CREATE TABLE `session` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
  */
 
-
-
 public class Session {
     private final File path;    
-    private HashMap table = new HashMap();
-    private HashMap sequences = new HashMap();
+    private final HashMap table = new HashMap();
+    private final HashMap sequences = new HashMap();
     private Long numberOfFiles = 0L;
     private Long diskUsageInBit = 0L;  
 
@@ -114,10 +109,10 @@ public class Session {
             table.putIfAbsent("StudyDescription", attrs.getString(Tag.StudyDescription));            
             table.putIfAbsent("StudyDate", attrs.getString(Tag.StudyDate));            
             table.putIfAbsent("StudyTime", attrs.getString(Tag.StudyTime));
-    
+            table.putIfAbsent("ProtocolName", attrs.getString(Tag.ProtocolName));
+   
             String seriesInstanceUID =  attrs.getString(Tag.SeriesInstanceUID);
             sequence.putIfAbsent("SeriesInstanceUID", seriesInstanceUID);
-            sequence.putIfAbsent("ProtocolName", attrs.getString(Tag.ProtocolName));
             sequence.putIfAbsent("SeriesNumber", attrs.getString(Tag.SeriesNumber));
             sequence.putIfAbsent("ImageType", attrs.getString(Tag.ImageType));
             sequences.putIfAbsent(seriesInstanceUID, sequence);
@@ -132,6 +127,25 @@ public class Session {
         return (String)table.get("StudyInstanceUID");
     }
     
+    public String getPatientId(){
+        return (String)table.get("PatientID");
+    }   
+
+    public String getProtocolName(){
+        return (String)table.get("ProtocolName");
+    } 
+    
+    public String getReferringPhysicianName(){
+        return (String)table.get("ReferringPhysicianName");
+    }    
+    
+    public String getStudyDate(){
+        return (String)table.get("StudyDate");
+    }    
+    public Boolean getAvailable(){
+        return (Boolean)table.get("Available");
+    }     
+    
     public String toJson(){
         Gson gson = new Gson(); 
         return gson.toJson(table); 
@@ -144,5 +158,6 @@ public class Session {
     
     public int lenght(){
         return toJson().length();    
-    }   
+    }  
+    
 }

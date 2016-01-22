@@ -136,27 +136,13 @@ public class StoreSCP {
         @Override
         public void onClose(Association as) {
             
-            System.out.println("uids =" +uids.toString());
-            System.out.println("storageDir =" +storageDir.toString());
-            //This should go in a class
-            
             for (String uid : uids){                
+                Mysql mysql = new Mysql();
                 Session session = new Session(new File(storageDir, uid));
                 session.map();
-                System.out.println("map ="+session.toJson().toString());
-                Mysql mysql = new Mysql();
-                if(mysql.exist(session.getUid())){
-                    System.out.println("Hurry yahhhh");
-                }
-                
+                mysql.insertOrUpdate(session);
                 
             }
-            
-            //UNTIL HERE
-            
-            
-            
-            
             
             uids.clear();
             System.out.println("Finish receiving images, clearing buffers");

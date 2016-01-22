@@ -10,21 +10,16 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
 /**
  *
  * @author mathieu
  */
 public class Mysql {
     
-    public Mysql(){
-    
-    }
-    
-    public Boolean exist(String uid){
-        boolean exists = false;
+    public void insertOrUpdate(Session session){
         try {
             Class.forName("com.mysql.jdbc.Driver").newInstance();
             
@@ -32,52 +27,40 @@ public class Mysql {
                ("jdbc:mysql://localhost:3306/mri?autoReconnect=true&useSSL=false", "root", "yv35j0@n3tt3");
 
             PreparedStatement statement = connection.prepareStatement("SELECT count(*) FROM session WHERE uid=?");
-            statement.setString(1, uid);
+            statement.setString(1, session.getUid());
             ResultSet resultSet = statement.executeQuery();
 
             if(resultSet.next()) {
-                exists = resultSet.getInt(1) > 0;
+                if (resultSet.getInt(1) > 0){
+                    statement = connection.prepareStatement("DELETE FROM session WHERE uid=?");
+                    statement.setString(1, session.getUid());
+                    statement.executeUpdate();    
+                }
             }
+            
+            String query = "INSERT INTO session (uid, "
+                    + "patientid, "
+                    + "protocolename, "
+                    + "gid, "
+                    + "studydate, "
+                    + "available, "
+                    + "metadata) VALUES(?,?,?,?,?,?,?)";
+            
+            statement = connection.prepareStatement(query);        
+            statement.setString(1, session.getUid());
+            statement.setString(2, session.getPatientId());
+            statement.setString(3, session.getProtocolName());
+            statement.setString(4, session.getReferringPhysicianName());
+            statement.setString(5, session.getStudyDate());
+            statement.setBoolean(6, session.getAvailable());
+            statement.setString(7, session.toJson());
+            statement.executeUpdate();       
+            
             statement.close();
             connection.close();            
           
-        } catch (ClassNotFoundException ex) {
+        } catch (ClassNotFoundException | SQLException | IllegalAccessException | InstantiationException ex) {
             Logger.getLogger(Mysql.class.getName()).log(Level.SEVERE, null, ex);
-        } catch (SQLException ex) {
-            Logger.getLogger(Mysql.class.getName()).log(Level.SEVERE, null, ex);
-        } catch (IllegalAccessException ex) {
-            Logger.getLogger(Mysql.class.getName()).log(Level.SEVERE, null, ex);
-        } catch (InstantiationException ex) {
-            Logger.getLogger(Mysql.class.getName()).log(Level.SEVERE, null, ex);
-        }
-        
-    return exists;
+        }        
     }
-
-
-    /*
-    String myDriver = "org.gjt.mm.mysql.Driver";
-    String myUrl = "jdbc:mysql://localhost/test";
-    Class.forName(myDriver);
-    Connection conn = DriverManager.getConnection(myUrl, "root", "yv35j0@n3tt3");
-
-    String query = "SELECT * FROM session";
-
-
-
-    Statement st = conn.createStatement();
-    ResultSet rs = st.executeQuery(query);
-
-    while (rs.next())
-    {
-        int id = rs.getInt("id");
-        String firstName = rs.getString("first_name");
-        String lastName = rs.getString("last_name");
-        Date dateCreated = rs.getDate("date_created");
-        boolean isAdmin = rs.getBoolean("is_admin");
-        int numPoints = rs.getInt("num_points");
-    }
-    st.close();
-*/
-
 }

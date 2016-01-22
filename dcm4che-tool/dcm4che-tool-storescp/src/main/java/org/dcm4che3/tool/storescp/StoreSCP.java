@@ -40,6 +40,8 @@ package org.dcm4che3.tool.storescp;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
 import java.util.ResourceBundle;
 import java.util.concurrent.ExecutorService;
@@ -93,7 +95,8 @@ public class StoreSCP {
     private AttributesFormat filePathFormat;
     private int status;
     private final BasicCStoreSCP cstoreSCP = new BasicCStoreSCP("*") {
-
+    private List<String> uids = new ArrayList<String>();
+            
         @Override
         protected void store(Association as, PresentationContext pc,
                 Attributes rq, PDVInputStream data, Attributes rsp)
@@ -101,26 +104,68 @@ public class StoreSCP {
             rsp.setInt(Tag.Status, VR.US, status);
             if (storageDir == null)
                 return;
-
+            
             String cuid = rq.getString(Tag.AffectedSOPClassUID);
             String iuid = rq.getString(Tag.AffectedSOPInstanceUID);
             String tsuid = pc.getTransferSyntax();
             File file = new File(storageDir, iuid + PART_EXT);
+
             try {
                 storeTo(as, as.createFileMetaInformation(iuid, cuid, tsuid),
                         data, file);
+
+                Attributes attributes = parse(file);
+                                       
                 renameTo(as, file, new File(storageDir,
                         filePathFormat == null
                             ? iuid
-                            : filePathFormat.format(parse(file))));
+                            : filePathFormat.format(attributes)));
+                
+                String uid = attributes.getString(Tag.StudyInstanceUID);
+
+                if (!uids.contains(uid)){
+                    uids.add(uid);
+                }      
+                
             } catch (Exception e) {
                 deleteFile(as, file);
                 throw new DicomServiceException(Status.ProcessingFailure, e);
             }
         }
 
-    };
+        @Override
+        public void onClose(Association as) {
+            
+            System.out.println("uids =" +uids.toString());
+            System.out.println("storageDir =" +storageDir.toString());
+            //This should go in a class
+            
+            for (String uid : uids){                
+                Session session = new Session(new File(storageDir, uid));
+                session.map();
+                System.out.println("map ="+session.toJson().toString());
+                Mysql mysql = new Mysql();
+                if(mysql.exist(session.getUid())){
+                    System.out.println("Hurry yahhhh");
+                }
+                
+                
+            }
+            
+            //UNTIL HERE
+            
+            
+            
+            
+            
+            uids.clear();
+            System.out.println("Finish receiving images, clearing buffers");
+            super.onClose(as);
+    
+        }        
 
+    };
+        
     public StoreSCP() throws IOException {
         device.setDimseRQHandler(createServiceRegistry());
         device.addConnection(conn);
@@ -141,7 +186,7 @@ public class StoreSCP {
             SafeClose.close(out);
         }
     }
-
+    
     private static void renameTo(Association as, File from, File dest)
             throws IOException {
         LOG.info("{}: M-RENAME {}", new Object[]{ as, from, dest });
@@ -171,6 +216,7 @@ public class StoreSCP {
         DicomServiceRegistry serviceRegistry = new DicomServiceRegistry();
         serviceRegistry.addDicomService(new BasicCEchoSCP());
         serviceRegistry.addDicomService(cstoreSCP);
+
         return serviceRegistry;
     }
 
@@ -186,6 +232,7 @@ public class StoreSCP {
 
     public void setStatus(int status) {
         this.status = status;
+
     }
 
     private static CommandLine parseComandLine(String[] args)
@@ -242,19 +289,25 @@ public class StoreSCP {
 
     public static void main(String[] args) {
         try {
-            CommandLine cl = parseComandLine(args);
-            StoreSCP main = new StoreSCP();
-            CLIUtils.configureBindServer(main.conn, main.ae, cl);
-            CLIUtils.configure(main.conn, cl);
+            System.out.println("Debuging 00------>");
+            CommandLine cl = parseComandLine(args); 
+            
+            StoreSCP main = new StoreSCP();            
+            CLIUtils.configureBindServer(main.conn, main.ae, cl);            
+            CLIUtils.configure(main.conn, cl);            
             main.setStatus(CLIUtils.getIntOption(cl, "status", 0));
             configureTransferCapability(main.ae, cl);
             configureStorageDirectory(main, cl);
             ExecutorService executorService = Executors.newCachedThreadPool();
+            
             ScheduledExecutorService scheduledExecutorService = 
                     Executors.newSingleThreadScheduledExecutor();
+            
             main.device.setScheduledExecutor(scheduledExecutorService);
             main.device.setExecutor(executorService);
             main.device.bindConnections();
+
+            
         } catch (ParseException e) {
             System.err.println("storescp: " + e.getMessage());
             System.err.println(rb.getString("try"));

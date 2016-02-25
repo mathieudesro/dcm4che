@@ -437,5 +437,18 @@
       <artifactId>jai_imageio</artifactId>
       <version>1.2-pre-dr-b04</version>
     </dependency>
+            <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+            <version>2.5</version>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
+                <groupId>mysql</groupId>
+                <artifactId>mysql-connector-java</artifactId>
+                <version>5.1.38</version>
+                <scope>compile</scope>
+        </dependency> 
+    
   </dependencies>
 </project>

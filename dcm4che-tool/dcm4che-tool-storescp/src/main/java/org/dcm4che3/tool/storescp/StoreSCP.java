@@ -271,7 +271,6 @@ public class StoreSCP {
 
     public static void main(String[] args) {
         try {
-            System.out.println("Debuging 00------>");
             CommandLine cl = parseComandLine(args); 
             
             StoreSCP main = new StoreSCP();            

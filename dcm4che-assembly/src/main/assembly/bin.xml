@@ -177,6 +177,9 @@
         <include>commons-cli:commons-cli</include>
         <include>org.glassfish:javax.json</include>
         <include>org.jboss.resteasy:jaxrs-api</include>
+        <include>com.google.code.gson:gson</include>
+        <include>mysql:mysql-connector-java</include>
+        
       </includes>
       <useProjectArtifact>false</useProjectArtifact>
     </dependencySet>

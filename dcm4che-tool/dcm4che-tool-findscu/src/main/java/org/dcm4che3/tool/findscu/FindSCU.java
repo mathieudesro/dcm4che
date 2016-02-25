@@ -49,6 +49,7 @@ import java.text.MessageFormat;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.ResourceBundle;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -79,6 +80,7 @@ import org.dcm4che3.net.pdu.ExtendedNegotiation;
 import org.dcm4che3.net.pdu.PresentationContext;
 import org.dcm4che3.tool.common.CLIUtils;
 import org.dcm4che3.util.SafeClose;
+import org.dcm4che3.util.StringUtils;
 
 /**
  * The findscu application implements a Service Class User (SCU) for the
@@ -134,7 +136,8 @@ public class FindSCU {
     private int priority;
     private int cancelAfter;
     private InformationModel model;
-
+    private static String[] modelUIDandTS;
+    
     private File outDir;
     private DecimalFormat outFileFormat;
     private int[] inFilter;
@@ -151,6 +154,8 @@ public class FindSCU {
 
     private Association as;
     private final AtomicInteger totNumMatches = new AtomicInteger();
+    
+    private long tStartCFind;
 
     public FindSCU() throws IOException {
         device.addConnection(conn);
@@ -250,6 +255,7 @@ public class FindSCU {
                 .withDescription(rb.getString("model"))
                 .create("M"));
         CLIUtils.addTransferSyntaxOptions(opts);
+        opts.addOption(null, "model-uid", true, rb.getString("model-uid"));
         opts.addOption(null, "relational", false, rb.getString("relational"));
         opts.addOption(null, "datetime", false, rb.getString("datetime"));
         opts.addOption(null, "fuzzy", false, rb.getString("fuzzy"));
@@ -368,7 +374,10 @@ public class FindSCU {
             main.device.setExecutor(executorService);
             main.device.setScheduledExecutor(scheduledExecutorService);
             try {
+                long t1 = System.currentTimeMillis();
                 main.open();
+                long t2 = System.currentTimeMillis();
+                System.out.println("Association opened in "+(t2-t1)+"ms");
                 List<String> argList = cl.getArgList();
                 if (argList.isEmpty())
                     main.query();
@@ -436,6 +445,16 @@ public class FindSCU {
     private static void configureServiceClass(FindSCU main, CommandLine cl) throws ParseException {
         main.setInformationModel(informationModelOf(cl), 
                 CLIUtils.transferSyntaxesOf(cl), queryOptionsOf(main, cl));
+        if (cl.hasOption("model-uid")) {
+            String cuidAndTS = cl.getOptionValue("model-uid");
+            modelUIDandTS = StringUtils.split(cuidAndTS, '|');
+            main.rq.addPresentationContext(new PresentationContext(3, modelUIDandTS[0], UID.ImplicitVRLittleEndian));
+            main.rq.addPresentationContext(new PresentationContext(5, modelUIDandTS[0], UID.ExplicitVRLittleEndian));
+            for (int i = 1, pcid = 7 ; i < modelUIDandTS.length ; i++) {
+                main.rq.addPresentationContext(new PresentationContext(pcid, modelUIDandTS[0], modelUIDandTS[i]));
+                pcid += 2;
+            }
+        }
     }
 
     private static InformationModel informationModelOf(CommandLine cl) throws ParseException {
@@ -496,6 +515,7 @@ public class FindSCU {
             @Override
             public void onDimseRSP(Association as, Attributes cmd,
                     Attributes data) {
+                System.out.println("####### DimesRSP received after "+(System.currentTimeMillis()-tStartCFind)+"ms");
                 super.onDimseRSP(as, cmd, data);
                 int status = cmd.getInt(Tag.Status, -1);
                 if (Status.isPending(status)) {
@@ -520,7 +540,17 @@ public class FindSCU {
     }
     
     private void query(Attributes keys, DimseRSPHandler rspHandler) throws IOException, InterruptedException {
-        as.cfind(model.cuid, priority, keys, null, rspHandler);
+        String cuid = model.cuid;
+        if (modelUIDandTS != null) {
+            Set<String> ts = as.getTransferSyntaxesFor(modelUIDandTS[0]);
+            if (ts.size() > 0) {
+                cuid = modelUIDandTS[0];
+            }
+        }
+        tStartCFind = System.currentTimeMillis();
+        as.cfind(cuid, priority, keys, null, rspHandler);
+        long t2 = System.currentTimeMillis();
+        System.out.println("C-FIND Request done in "+(t2-tStartCFind)+"ms!");
     }
     
     private void onResult(Attributes data) {

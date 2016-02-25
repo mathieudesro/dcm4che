@@ -145,6 +145,13 @@ public class Attributes implements Serializable {
         addSelected(other, selection);
     }
 
+    public Attributes(Attributes other, Attributes selection) {
+        this(selection.size());
+        if (other.properties != null)
+            properties = new HashMap<String, Object>(other.properties);
+        addSelected(other, selection);
+    }
+
     public Attributes(Attributes other, boolean bigEndian, Attributes selection) {
         this(bigEndian, selection.size());
         if (other.properties != null)
@@ -1543,7 +1550,7 @@ public class Attributes implements Serializable {
      * @param from Time Zone from
      * @param to Time Zone to
      * @param privateCreator private creator - null otherwise
-     * @param Tag Attribute tag to update time zone
+     * @param tag Attribute tag to update time zone
      */
     public void updateTimeZoneOfSpecificTag(TimeZone from, TimeZone to
             , String privateCreator, int tag) {
@@ -2022,6 +2029,128 @@ public class Attributes implements Serializable {
 
     public boolean addAll(Attributes other) {
         return add(other, null, null, 0, 0, null, false, false, false, null);
+    }
+
+    /**
+     * Updates this Attributes object with all the attributes of
+     * the "other" object, applying the same behaviour recursively
+     * to the items of the Sequences (if the "other" attributes has
+     * a sequence with only a part of the attributes, only those will
+     * be updated in the original Sequence).
+     *
+     * Note: recursion will be applied only with Sequences containing one
+     * item and having the original item not null. If this condition
+     * is not supported, the complete sequence of the "other" Attributes
+     * will be set to this one, as in addAll(Attributes other)
+     *
+     * @param other the other Attributes object
+     * @return <tt>true</tt> if one ore more attribute are added or
+     *          overwritten with a different value
+     */
+    public boolean updateRecursive (Attributes other) {
+
+        boolean toggleEndian = bigEndian != other.bigEndian;
+        final int otherSize = other.size;
+        int numAdd = 0;
+        String privateCreator = null;
+        int creatorTag = 0;
+        for (int i = 0; i < otherSize; i++) {
+
+            int tag = other.tags[i];
+            VR vr = other.vrs[i];
+            Object value = other.values[i];
+
+            if (TagUtils.isPrivateCreator(tag)) {
+                continue; // private creators will be automatically added with the private tags
+            }
+
+            if (TagUtils.isPrivateTag(tag)) {
+                int tmp = TagUtils.creatorTagOf(tag);
+                if (creatorTag != tmp) {
+                    creatorTag = tmp;
+                    privateCreator = other.privateCreatorOf(tag);
+                }
+            } else {
+                creatorTag = 0;
+                privateCreator = null;
+            }
+
+            if (value instanceof Sequence) {
+
+                int indexOfOriginalSequence = indexOf(tag);
+
+                if (indexOfOriginalSequence < 0) {
+                    //Trying to recursively update an empty sequence, fallback to whole copy
+                    set(privateCreator, tag, (Sequence) value, null);
+                } else {
+
+                    Sequence original = (Sequence) values[indexOfOriginalSequence];
+                    Attributes updated = ((Sequence) value).get(0);
+
+                    if (updated==null)
+                        continue;
+
+                    if (original.size() > 1 || updated.size()>1)
+                        //Trying to recursively update a sequence with more than 1 item: fallback to whole copy
+                        set(privateCreator, tag, (Sequence) value, null);
+                    else
+                        //both original and updated sequences have 1 item
+                            original.get(0).updateRecursive(updated);
+                }
+            } else if (value instanceof Fragments) {
+                set(privateCreator, tag, (Fragments) value);
+            } else {
+                set(privateCreator, tag, vr,
+                        toggleEndian(vr, value, toggleEndian));
+            }
+            numAdd++;
+        }
+        return numAdd != 0;
+    }
+
+    /**
+     * Filters this Attributes object returning an Attributes containing
+     * all the properties found in the selection object and the relative
+     * ancestors, if any.
+     *
+     * Example:
+     *
+     * original:
+     * (0010,0020) LO [PatientID] PatientID
+     * (0010,0021) LO [IssuerOfPatientID] IssuerOfPatientID
+     * (0010,1002) SQ [1 Items] OtherPatientIDsSequence
+     * >Item #1
+     * >(0010,0020) LO [OtherPatientID] PatientID
+     * >(0010,0021) LO [OtherIssuerOfPatientID] IssuerOfPatientID
+     *
+     * selection:
+     * (0010,0020) LO [OtherPatientID] PatientID
+     *
+     * result:
+     * (0010,1002) SQ [1 Items] OtherPatientIDsSequence
+     * >Item #1
+     * >(0010,0020) LO [OtherPatientID] PatientID
+     *
+     * @param selection selection filter
+     * @return filtered Attributes
+     */
+    public Attributes filter (Attributes selection) {
+
+        Attributes filtered = new Attributes();
+        for (int tag : tags()) {
+            if (selection.contains(tag)) {
+                if (selection.getValue(tag).equals(getValue(tag)))
+                    filtered.setValue(tag, getVR(tag), getValue(tag));
+            }
+            if (getVR(tag) == VR.SQ) {
+                Attributes seq = getNestedDataset(tag).filter(selection);
+                if (seq.size()>0) {
+                    Sequence sequence = filtered.newSequence(tag,seq.size());
+                    sequence.add(0,seq);
+                }
+            }
+        }
+        return filtered;
     }
 
     public boolean merge(Attributes other) {

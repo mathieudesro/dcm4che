@@ -237,4 +237,56 @@ public class QCTool implements TestTool {
         init(tmpResult);
     }
 
+    /**
+     * reject.
+     * Calls the tool to reject studies, series or instance
+     *
+     * @param testDescription
+     *            the test description
+     * @param rOrUIDs
+     *            the list of SOPUIDs
+     */
+    public void reject(String testDescription, ArrayList<String> rOrUIDs) {
+        qc.setRrUIDs(rOrUIDs);
+        QCResult tmpResult = qc.performOperation(testDescription, qc);
+        init(tmpResult);
+    }
+
+    /**
+     * restore.
+     * Calls the tool to restore a set of instances from being rejected.
+     * Configuration of the archive must allow this code to override previous one.
+     *
+     * @param testDescription
+     *            the test description
+     * @param rOrUIDs
+     *            the list of SOPUIDs
+     */
+    public void restore(String testDescription, ArrayList<String> rOrUIDs) {
+        qc.setRrUIDs(rOrUIDs);
+        QCResult tmpResult = qc.performOperation(testDescription, qc);
+        init(tmpResult);
+    }
+    
+    /**
+     * updateAttributes.
+     * Calls the tool to update instances identified by their uids
+     * in the updateData with metadata also specified in the updateData.
+     * Will not update UIDS.
+     *
+     * @param testDescription
+     *            the test description
+     * @param updateScope
+     *            the scope can be any scope specified in QCUpdateScope
+     * @param updateData
+     *            Attributes used to identify and update objects
+     */
+    public void quickFixLinkMWL(String testDescription, Attributes mwlAttributes, IDWithIssuer pid) {
+        qc.setUpdateAttrs(mwlAttributes);
+        qc.setPid(pid);
+
+        QCResult tmpResult = qc.performOperation(testDescription, qc);
+        init(tmpResult);
+    }
+
 }

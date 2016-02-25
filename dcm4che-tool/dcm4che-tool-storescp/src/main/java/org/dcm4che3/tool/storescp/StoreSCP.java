@@ -95,7 +95,7 @@ public class StoreSCP {
     private AttributesFormat filePathFormat;
     private int status;
     private final BasicCStoreSCP cstoreSCP = new BasicCStoreSCP("*") {
-    private List<String> uids = new ArrayList<String>();
+    private final List<String> uids = new ArrayList();
             
         @Override
         protected void store(Association as, PresentationContext pc,
@@ -139,13 +139,9 @@ public class StoreSCP {
             for (String uid : uids){                
                 Mysql mysql = new Mysql();
                 Session session = new Session(new File(storageDir, uid));
-                session.map();
-                mysql.insertOrUpdate(session);
-                
+                mysql.insertOrUpdate(session);                
             }
-            
             uids.clear();
-            System.out.println("Finish receiving images, clearing buffers");
             super.onClose(as);
     
         }        

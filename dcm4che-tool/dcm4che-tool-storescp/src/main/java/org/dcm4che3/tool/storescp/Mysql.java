@@ -40,20 +40,18 @@ public class Mysql {
             
             String query = "INSERT INTO session (uid, "
                     + "patientid, "
-                    + "protocolename, "
                     + "gid, "
                     + "studydate, "
                     + "available, "
-                    + "metadata) VALUES(?,?,?,?,?,?,?)";
+                    + "metadata) VALUES(?,?,?,?,?,?)";
             
             statement = connection.prepareStatement(query);        
             statement.setString(1, session.getUid());
             statement.setString(2, session.getPatientId());
-            statement.setString(3, session.getProtocolName());
-            statement.setString(4, session.getReferringPhysicianName());
-            statement.setString(5, session.getStudyDate());
-            statement.setBoolean(6, session.getAvailable());
-            statement.setString(7, session.toJson());
+            statement.setString(3, session.getReferringPhysicianName());
+            statement.setString(4, session.getStudyDate());
+            statement.setBoolean(5, session.getAvailable());
+            statement.setString(6, session.toJson());
             statement.executeUpdate();       
             
             statement.close();

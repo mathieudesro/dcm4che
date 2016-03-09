@@ -5,17 +5,22 @@
  */
 package org.dcm4che3.tool.storescp;
 
+import java.util.HashSet;
+
 /**
  *
  * @author mathieu
  */
 public class SequenceStatistics {
     private String uid;
+    private HashSet<String> echoesNumber;
     private Long numberOfFiles = 0L;
     private Long diskUsageInBit = 0L; 
 
+
     public SequenceStatistics(String uid) {
         this.uid = uid;
+        this.echoesNumber = new HashSet();
     }
     
     public String getUid() {
@@ -47,4 +52,16 @@ public class SequenceStatistics {
         this.numberOfFiles++;
     }
 
+    public HashSet<String> getEchoesNumber() {
+        return echoesNumber;
+    }
+
+    public void setEchoesNumber(HashSet<String> echoesNumber) {
+        this.echoesNumber = echoesNumber;
+    }
+    
+    public void addEchoesNumber(String echoesNumber) {
+        this.echoesNumber.add(echoesNumber);
+    }    
+    
 }

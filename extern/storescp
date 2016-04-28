@@ -1,0 +1,52 @@
+#!/bin/bash
+#
+#       /etc/rc.d/init.d/storescp
+# storescp      This shell script takes care of starting and stopping
+#               storescp (the DICOM storage server)
+#
+# Author:  Mathieu Desrosiers
+#
+# Source function library.
+
+DIR=/srv/dcm4che-3.3/bin
+
+start() {
+        echo -n "Starting DICOM Daemon Server: "
+                cd $DIR
+                /srv/dcm4che-3.3/bin/storescp -b storage:104 --accept-unknown  --filepath {0020000D}/{0020000E}/{00080018}.dcm --directory /data/dicom_storage 
+                RETVAL=$?
+                echo
+                [ $RETVAL -eq 0 ] && touch /var/lock/subsys/storescp
+                return $RETVAL
+
+}
+
+stop() {
+        echo -n "Shutting down DICOM Daemon Server: "
+        echo
+        killproc storescp
+        echo
+        rm -f /var/lock/subsys/storescp
+        return 0
+}
+
+case "$1" in
+    start)
+        start
+        ;;
+    stop)
+        stop
+        ;;
+    status)
+        status storescp
+        ;;
+    restart)
+        stop
+        start
+        ;;
+    *)
+        echo "Usage:  {start|stop|status|restart}"
+        exit 1
+        ;;
+esac
+exit $?

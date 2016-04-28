@@ -71,11 +71,11 @@
             </properties>
         </profile>
         <profile>
-            <id>dev</id>
+            <id>prod</id>
             <properties>
-                <jdbc.password>dcm4che_mri_true</jdbc.password>
+                <jdbc.password>dcm4che_XXmri_true</jdbc.password>
                 <jdbc.database>mri</jdbc.database>
-                <jdbc.format_sql>true</jdbc.format_sql>
+                <jdbc.format_sql>false</jdbc.format_sql>
                 <jdbc.url>jdbc:mysql://localhost:3306/${jdbc.database}?autoReconnect=true&amp;useSSL=false</jdbc.url>
                 <jdbc.driverClassName>com.mysql.jdbc.Driver</jdbc.driverClassName>
                 <jdbc.username>dcm4che</jdbc.username>

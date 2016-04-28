@@ -47,6 +47,41 @@
     <artifactId>dcm4che-tool-storescp</artifactId>
     <name>dcm4che-tool-storescp</name>
     <description>Receive DICOM Composite Objects from peer DICOM AE</description>
+    <build>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>true</filtering>
+                <includes>
+                    <include>*.properties</include>
+                </includes>
+            </resource>
+        </resources>
+    </build>
+    <profiles>
+        <profile>
+            <id>macosx</id>
+            <properties>
+                <jdbc.password>yv35j0@n3tt3</jdbc.password>
+                <jdbc.database>mri</jdbc.database>
+                <jdbc.format_sql>true</jdbc.format_sql>
+                <jdbc.url>jdbc:mysql://localhost:3306/${jdbc.database}?autoReconnect=true&amp;useSSL=false</jdbc.url>
+                <jdbc.driverClassName>com.mysql.jdbc.Driver</jdbc.driverClassName>
+                <jdbc.username>root</jdbc.username>
+            </properties>
+        </profile>
+        <profile>
+            <id>dev</id>
+            <properties>
+                <jdbc.password>dcm4che_mri_true</jdbc.password>
+                <jdbc.database>mri</jdbc.database>
+                <jdbc.format_sql>true</jdbc.format_sql>
+                <jdbc.url>jdbc:mysql://localhost:3306/${jdbc.database}?autoReconnect=true&amp;useSSL=false</jdbc.url>
+                <jdbc.driverClassName>com.mysql.jdbc.Driver</jdbc.driverClassName>
+                <jdbc.username>dcm4che</jdbc.username>
+            </properties>
+        </profile>
+    </profiles>
     <dependencies>
         <dependency>
             <groupId>org.dcm4che</groupId>

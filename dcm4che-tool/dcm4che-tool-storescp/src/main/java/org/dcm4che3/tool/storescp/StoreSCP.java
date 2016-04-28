@@ -85,7 +85,7 @@ public class StoreSCP {
     private static final Logger LOG = LoggerFactory.getLogger(StoreSCP.class);
 
     private static ResourceBundle rb =
-        ResourceBundle.getBundle("org.dcm4che3.tool.storescp.messages");
+        ResourceBundle.getBundle("messages");
     private static final String PART_EXT = ".part";
 
     private final Device device = new Device("storescp");

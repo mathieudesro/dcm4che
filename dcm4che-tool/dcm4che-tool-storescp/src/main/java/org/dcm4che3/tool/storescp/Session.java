@@ -73,78 +73,55 @@ public class Session {
     
     private void readDicomFile(Path file){
         
-        HashMap sequence = new HashMap();
-               
+        DicomInputStream dicom = null;
         try {
-
-            DicomInputStream dicom = new DicomInputStream(file.toFile());
+            HashMap sequence = new HashMap();
+            dicom = new DicomInputStream(file.toFile());
             Attributes attrs = dicom.readDataset(-1, -1);
-            
             String manufacturer = attrs.getString(Tag.Manufacturer);
             String modality = attrs.getString(Tag.Modality);
-
-            //test for CT or PET modality
             if (manufacturer.contains("SIEMENS")){
                 HashMap map = extractASCCONVAttributes(file);
                 sequence.putIfAbsent("NumberOfEchoes", map.get("NumberOfEchoes"));
-            }
-            
-            //Define echoes time for MR images
-            
-            String patientName = attrs.getString(Tag.PatientName);
+            }   String patientName = attrs.getString(Tag.PatientName);
             table.putIfAbsent("PatientName", patientName);
             table.putIfAbsent("name", patientName);
             table.putIfAbsent("checked", false);
             table.putIfAbsent("archive", false);
             table.putIfAbsent("iconCls", "task-folder");
-
             table.putIfAbsent("Manufacturer", manufacturer);
             table.putIfAbsent("ManufacturerModelName", attrs.getString(Tag.ManufacturerModelName));
             table.putIfAbsent("StationName", attrs.getString(Tag.StationName));
             table.putIfAbsent("SoftwareVersions", attrs.getString(Tag.SoftwareVersions));
             table.putIfAbsent("MagneticFieldStrength", attrs.getString(Tag.MagneticFieldStrength));
             table.putIfAbsent("StationName", attrs.getString(Tag.StationName));
-            
-                        
             table.putIfAbsent("InstitutionName", attrs.getString(Tag.InstitutionName));
             table.putIfAbsent("InstitutionCodeSequence", attrs.getString(Tag.InstitutionCodeSequence));
             table.putIfAbsent("InstitutionAddress", attrs.getString(Tag.InstitutionAddress));
             table.putIfAbsent("InstitutionalDepartmentName", attrs.getString(Tag.InstitutionalDepartmentName));
-        
-            //table.putIfAbsent("ReferringPhysicianName", (attrs.getString(Tag.ReferringPhysicianName) != null)?
-            //                                                attrs.getString(Tag.ReferringPhysicianName):    
-            //                                                "UNKNOWN"
-            //);
-            
-            table.putIfAbsent("ReferringPhysicianName", attrs.getString(Tag.ReferringPhysicianName)); 
-            
+            table.putIfAbsent("ReferringPhysicianName", attrs.getString(Tag.ReferringPhysicianName));
+            table.putIfAbsent("AdmissionID", attrs.getString(Tag.AdmissionID));
             table.putIfAbsent("PatientID", attrs.getString(Tag.PatientID));
             table.putIfAbsent("PatientBirthDate", attrs.getString(Tag.PatientBirthDate));
             table.putIfAbsent("PatientBirthTime", attrs.getString(Tag.PatientBirthTime));
             table.putIfAbsent("PatientSize", attrs.getString(Tag.PatientSize));
             table.putIfAbsent("PatientWeight", attrs.getString(Tag.PatientWeight));
             table.putIfAbsent("PatientSex", attrs.getString(Tag.PatientSex));
-            table.putIfAbsent("PatientAge", attrs.getString(Tag.PatientAge));            
-            
+            table.putIfAbsent("PatientAge", attrs.getString(Tag.PatientAge));
             table.putIfAbsent("StudyInstanceUID", attrs.getString(Tag.StudyInstanceUID));
             table.putIfAbsent("StudyID", attrs.getString(Tag.StudyID));
-            
             table.putIfAbsent("StudyDescription", attrs.getString(Tag.StudyDescription));
-            table.putIfAbsent("StudyDate", attrs.getString(Tag.StudyDate));            
+            table.putIfAbsent("StudyDate", attrs.getString(Tag.StudyDate));
             table.putIfAbsent("StudyTime", attrs.getString(Tag.StudyTime));
-                       
             String seriesInstanceUID =  attrs.getString(Tag.SeriesInstanceUID);
             sequence.putIfAbsent("SeriesInstanceUID", seriesInstanceUID);
             sequence.putIfAbsent("ImageType", attrs.getString(Tag.ImageType));
             sequence.putIfAbsent("Modality", modality);
-                        
             SequenceStatistics statistics = statisticsMap.getOrDefault(seriesInstanceUID, new SequenceStatistics(seriesInstanceUID));
             statistics.incrementNumberOfFilesAndAddDiskUsageInBit(file.toFile().length());
             statistics.addEchoesNumber(attrs.getString(Tag.EchoTime));
-            
             String seriesNumber = attrs.getString(Tag.SeriesNumber);
             String protocoleName = attrs.getString(Tag.ProtocolName);
-            
             sequence.putIfAbsent("SeriesDescription", attrs.getString(Tag.SeriesDescription));
             sequence.putIfAbsent("SeriesType", attrs.getString(Tag.SeriesType));
             sequence.putIfAbsent("SequenceName", attrs.getString(Tag.SequenceName));
@@ -152,8 +129,6 @@ public class Session {
             sequence.putIfAbsent("SeriesTime", attrs.getString(Tag.SeriesTime));
             sequence.putIfAbsent("ScanLength", attrs.getString(Tag.ScanLength));
             sequence.putIfAbsent("ScanningSequence", attrs.getString(Tag.ScanningSequence));
-            //Relative SNR
-            
             sequence.putIfAbsent("PixelSpacing", attrs.getString(Tag.PixelSpacing));
             sequence.putIfAbsent("PixelBandwidth", attrs.getString(Tag.PixelBandwidth));
             sequence.putIfAbsent("Rows", attrs.getString(Tag.Rows));
@@ -163,20 +138,24 @@ public class Session {
             sequence.putIfAbsent("HighBit", attrs.getString(Tag.HighBit));
             sequence.putIfAbsent("PixelRepresentation", attrs.getString(Tag.PixelRepresentation));
             sequence.putIfAbsent("ImageOrientationPatient", attrs.getString(Tag.ImageOrientationPatient));
-            sequence.putIfAbsent("ImagePositionPatient", attrs.getString(Tag.ImagePositionPatient));            
+            sequence.putIfAbsent("ImagePositionPatient", attrs.getString(Tag.ImagePositionPatient));
             sequence.putIfAbsent("SeriesNumber", seriesNumber);
             sequence.putIfAbsent("ProtocolName", protocoleName);
             sequence.putIfAbsent("name", String.format("%02d",Integer.parseInt(seriesNumber))+"-"+protocoleName);
             sequence.putIfAbsent("checked", false);
             sequence.putIfAbsent("iconCls", "task");
-            sequence.putIfAbsent("leaf", true);            
+            sequence.putIfAbsent("leaf", true);
             sequence.putIfAbsent("archive", false);
-            
             statisticsMap.put(seriesInstanceUID, statistics);
             sequences.putIfAbsent(seriesInstanceUID, sequence);
-            
         } catch (IOException ex) {
             Logger.getLogger(Session.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            try {
+                dicom.close();
+            } catch (IOException ex) {
+                Logger.getLogger(Session.class.getName()).log(Level.SEVERE, null, ex);
+            }
         }
     }
     
@@ -188,8 +167,8 @@ public class Session {
         return (String)table.get("PatientID");
     }   
 
-    public String getReferringPhysicianName(){        
-        return (String)table.get("ReferringPhysicianName");
+    public String getAdmissionID(){        
+        return (String)table.get("AdmissionID");
     }    
     
     public String getStudyDate(){
@@ -219,14 +198,18 @@ public class Session {
             
         try {
             String text = new String(Files.readAllBytes(file), StandardCharsets.UTF_8);
-            text = text.substring(text.lastIndexOf("### ASCCONV BEGIN ###")+1);
-            text = text.substring(0, text.indexOf("### ASCCONV END ###"));
+            
+            if(text.contains("### ASCCONV BEGIN ###")){
+                text = text.substring(text.lastIndexOf("### ASCCONV BEGIN ###")+1);
+                text = text.substring(0, text.indexOf("### ASCCONV END ###"));
 
-            for (String line: text.split("\n")){
-                if(line.contains("lContrasts")){
-                    map.putIfAbsent("NumberOfEchoes", line.substring(line.lastIndexOf("=")+1).trim());
+                for (String line: text.split("\n")){
+                    if(line.contains("lContrasts")){
+                        map.putIfAbsent("NumberOfEchoes", line.substring(line.lastIndexOf("=")+1).trim());
+                    }            
                 }            
             }
+
         } catch (IOException ex) {
             Logger.getLogger(Session.class.getName()).log(Level.SEVERE, null, ex);
         }

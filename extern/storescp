@@ -24,7 +24,7 @@ start() {
 stop() {
         echo -n "Shutting down DICOM Daemon Server: "
         echo
-        killproc storescp
+        ps -ef | grep org.dcm4che3.tool.storescp.StoreSCP | grep -v grep | awk '{print $2 }' | xargs -I{} -n 1 kill {}
         echo
         rm -f /var/lock/subsys/storescp
         return 0

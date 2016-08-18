@@ -57,7 +57,7 @@ public class Mysql {
             statement = connection.prepareStatement(query);        
             statement.setString(1, session.getUid());
             statement.setString(2, session.getPatientId());
-            statement.setString(3, session.getReferringPhysicianName());
+            statement.setString(3, session.getAdmissionID());
             statement.setString(4, session.getStudyDate());
             statement.setBoolean(5, session.getAvailable());
             statement.setString(6, session.toJson());
@@ -66,9 +66,7 @@ public class Mysql {
             statement.close();
             connection.close();            
           
-        } catch (ClassNotFoundException | SQLException | IllegalAccessException | InstantiationException ex) {
-            Logger.getLogger(Mysql.class.getName()).log(Level.SEVERE, null, ex);
-        } catch (IOException ex) {
+        } catch (ClassNotFoundException | SQLException | IllegalAccessException | InstantiationException | IOException ex) {
             Logger.getLogger(Mysql.class.getName()).log(Level.SEVERE, null, ex);
         }        
     }

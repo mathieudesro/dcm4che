@@ -100,7 +100,7 @@ public class Session {
             table.putIfAbsent("InstitutionAddress", attrs.getString(Tag.InstitutionAddress));
             table.putIfAbsent("InstitutionalDepartmentName", attrs.getString(Tag.InstitutionalDepartmentName));
             table.putIfAbsent("ReferringPhysicianName", attrs.getString(Tag.ReferringPhysicianName));
-            table.putIfAbsent("AdmissionID", attrs.getString(Tag.AdmissionID));
+            table.putIfAbsent("AccessionNumber", attrs.getString(Tag.AccessionNumber));
             table.putIfAbsent("PatientID", attrs.getString(Tag.PatientID));
             table.putIfAbsent("PatientBirthDate", attrs.getString(Tag.PatientBirthDate));
             table.putIfAbsent("PatientBirthTime", attrs.getString(Tag.PatientBirthTime));
@@ -113,6 +113,8 @@ public class Session {
             table.putIfAbsent("StudyDescription", attrs.getString(Tag.StudyDescription));
             table.putIfAbsent("StudyDate", attrs.getString(Tag.StudyDate));
             table.putIfAbsent("StudyTime", attrs.getString(Tag.StudyTime));
+            table.putIfAbsent("OperatorsName", attrs.getString(Tag.OperatorsName));
+
             String seriesInstanceUID =  attrs.getString(Tag.SeriesInstanceUID);
             sequence.putIfAbsent("SeriesInstanceUID", seriesInstanceUID);
             sequence.putIfAbsent("ImageType", attrs.getString(Tag.ImageType));
@@ -167,8 +169,8 @@ public class Session {
         return (String)table.get("PatientID");
     }   
 
-    public String getAdmissionID(){        
-        return (String)table.get("AdmissionID");
+    public String getGid(){        
+        return (String)table.get("AccessionNumber");
     }    
     
     public String getStudyDate(){

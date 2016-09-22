@@ -32,39 +32,53 @@ public class Mysql {
             
             Class.forName(prop.getProperty("jdbc.driverClassName")).newInstance();
             
-            Connection connection = DriverManager.getConnection
-               (prop.getProperty("jdbc.url"), prop.getProperty("jdbc.username"), prop.getProperty("jdbc.password"));
-            
-            PreparedStatement statement = connection.prepareStatement("SELECT count(*) FROM session WHERE uid=?");
-            statement.setString(1, session.getUid());
-            ResultSet resultSet = statement.executeQuery();
+            try (Connection connection = DriverManager.getConnection
+                       (prop.getProperty("jdbc.url"), prop.getProperty("jdbc.username"), prop.getProperty("jdbc.password"))) {
+                PreparedStatement statement = connection.prepareStatement("SELECT count(*) FROM session WHERE uid=?");
+                statement.setString(1, session.getUid());
+                ResultSet resultSet = statement.executeQuery();
+                
+                if(resultSet.next()) {
+                    if (resultSet.getInt(1) > 0){
+                        String query = "UPDATE session "
+                                + "SET uid=?, "
+                                + "patientid=?, "
+                                + "gid=?, "
+                                + "studydate=?, "
+                                + "available=?, "
+                                + "metadata=? "
+                                + "WHERE  uid=?";
 
-            if(resultSet.next()) {
-                if (resultSet.getInt(1) > 0){
-                    statement = connection.prepareStatement("DELETE FROM session WHERE uid=?");
-                    statement.setString(1, session.getUid());
-                    statement.executeUpdate();    
+                        statement = connection.prepareStatement(query);
+                        statement.setString(1, session.getUid());
+                        statement.setString(2, session.getPatientId());
+                        statement.setString(3, session.getGid());
+                        statement.setString(4, session.getStudyDate());
+                        statement.setBoolean(5,session.getAvailable());
+                        statement.setString(6, session.toJson());
+                        statement.setString(7, session.getUid());
+                        statement.executeUpdate();                        
+                    }
+                    else{
+                        String query = "INSERT INTO session (uid, "
+                                + "patientid, "
+                                + "gid, "
+                                + "studydate, "
+                                + "available, "
+                                + "metadata) VALUES(?,?,?,?,?,?)";
+
+                        statement = connection.prepareStatement(query);
+                        statement.setString(1, session.getUid());
+                        statement.setString(2, session.getPatientId());
+                        statement.setString(3, session.getGid());
+                        statement.setString(4, session.getStudyDate());
+                        statement.setBoolean(5, session.getAvailable());
+                        statement.setString(6, session.toJson());
+                        statement.executeUpdate();                                        
+                    }
                 }
+                statement.close();
             }
-            
-            String query = "INSERT INTO session (uid, "
-                    + "patientid, "
-                    + "gid, "
-                    + "studydate, "
-                    + "available, "
-                    + "metadata) VALUES(?,?,?,?,?,?)";
-            
-            statement = connection.prepareStatement(query);        
-            statement.setString(1, session.getUid());
-            statement.setString(2, session.getPatientId());
-            statement.setString(3, session.getAdmissionID());
-            statement.setString(4, session.getStudyDate());
-            statement.setBoolean(5, session.getAvailable());
-            statement.setString(6, session.toJson());
-            statement.executeUpdate();       
-            
-            statement.close();
-            connection.close();            
           
         } catch (ClassNotFoundException | SQLException | IllegalAccessException | InstantiationException | IOException ex) {
             Logger.getLogger(Mysql.class.getName()).log(Level.SEVERE, null, ex);

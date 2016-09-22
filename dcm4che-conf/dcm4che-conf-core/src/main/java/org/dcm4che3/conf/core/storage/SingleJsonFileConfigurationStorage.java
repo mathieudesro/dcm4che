@@ -39,20 +39,16 @@
  */
 package org.dcm4che3.conf.core.storage;
 
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.IOException;
+import java.io.*;
 import java.nio.file.Paths;
-import java.util.HashMap;
-import java.util.Hashtable;
-import java.util.Iterator;
-import java.util.Map;
+import java.util.*;
 
 import org.codehaus.jackson.map.ObjectMapper;
 import org.dcm4che3.conf.ConfigurationSettingsLoader;
 import org.dcm4che3.conf.core.api.Configuration;
 import org.dcm4che3.conf.core.api.ConfigurationException;
 import org.dcm4che3.conf.core.Nodes;
+import org.dcm4che3.conf.core.api.Path;
 import org.dcm4che3.util.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -108,8 +104,8 @@ public class SingleJsonFileConfigurationStorage implements Configuration {
     }
 
     @Override
-    public synchronized boolean nodeExists(String path) throws ConfigurationException {
-        return Nodes.nodeExists(getConfigurationRoot(), path);
+    public synchronized boolean nodeExists(Path path) throws ConfigurationException {
+        return Nodes.nodeExists(getConfigurationRoot(), path.getPathItems());
     }
 
     @Override
@@ -124,21 +120,21 @@ public class SingleJsonFileConfigurationStorage implements Configuration {
     }
 
     @Override
-    public synchronized Object getConfigurationNode(String path, Class configurableClass) throws ConfigurationException {
-        Object node = Nodes.getNode(getConfigurationRoot(), path);
+    public synchronized Object getConfigurationNode(Path path, Class configurableClass) throws ConfigurationException {
+        Object node = Nodes.getNode(getConfigurationRoot(), path.getPathItems());
         return node;
     }
 
 
     @Override
-    public synchronized void persistNode(String path, Map<String, Object> configNode, Class configurableClass) throws ConfigurationException {
+    public synchronized void persistNode(Path path, Map<String, Object> configNode, Class configurableClass) throws ConfigurationException {
         Map<String, Object> configurationRoot = getConfigurationRoot();
 
 //        if (configurableClass != null)
 //            configNode.put("#class", configurableClass.getName());
 
-        if (!path.equals("/")) {
-            Nodes.replaceNode(configurationRoot, path, configNode);
+        if (!Path.ROOT.equals(path)) {
+            Nodes.replaceNode(configurationRoot, configNode, path.getPathItems());
         } else
             configurationRoot = configNode;
 
@@ -150,7 +146,7 @@ public class SingleJsonFileConfigurationStorage implements Configuration {
         }
 
 
-        commitToGitIfConfigured(path);
+        commitToGitIfConfigured(path.toSimpleEscapedXPath());
 
         log.info("Configuration updated at path " + path);
 
@@ -175,8 +171,20 @@ public class SingleJsonFileConfigurationStorage implements Configuration {
                         .command("git", "add", "-A")
                         .start().waitFor();
 
+                // add stacktrace to commitMsg
+                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                PrintStream ps = new PrintStream(baos);
+                new RuntimeException().printStackTrace(ps);
+                String niceStackTrace = baos.toString();
+                niceStackTrace = niceStackTrace.replace("\"", "\\\"");
+                String[] lines = niceStackTrace.split("\n");
+                // remove the exception line itself
+                niceStackTrace = String.join("\n", Arrays.copyOfRange(lines, 1, lines.length));
+
+                String commitMsg = "\"Changed path " + path + "\n" + niceStackTrace + "\"";
+
                 processBuilder
-                        .command("git", "commit", "-m", "\"Changed path " + path + " \"")
+                        .command("git", "commit", "-m", commitMsg)
                         .start().waitFor();
 
 
@@ -187,17 +195,22 @@ public class SingleJsonFileConfigurationStorage implements Configuration {
     }
 
     @Override
-    public void refreshNode(String path) {
+    public void refreshNode(Path path) {
 
     }
 
     @Override
-    public synchronized void removeNode(String path) throws ConfigurationException {
+    public synchronized void removeNode(Path path) throws ConfigurationException {
 
         Map<String, Object> configurationRoot = getConfigurationRoot();
-        Nodes.removeNodes(configurationRoot, path);
-        persistNode("/", configurationRoot, null);
+        Nodes.removeNode(configurationRoot, path.getPathItems());
+        persistNode(Path.ROOT, configurationRoot, null);
 
+    }
+
+    @Override
+    public Path getPathByUUID(String uuid) {
+        throw new ConfigurationException("Unexpected error - uuid index is missing");
     }
 
     @Override

@@ -42,9 +42,12 @@ package org.dcm4che3.conf.dicom;
 
 import org.dcm4che3.conf.api.DicomConfiguration;
 import org.dcm4che3.conf.api.TCConfiguration;
+import org.dcm4che3.conf.api.TCGroupsProvider;
 import org.dcm4che3.conf.api.TransferCapabilityConfigExtension;
+import org.dcm4che3.conf.api.internal.DicomConfigurationManager;
 import org.dcm4che3.conf.core.api.ConfigurationException;
 import org.dcm4che3.conf.core.Nodes;
+import org.dcm4che3.data.UID;
 import org.dcm4che3.net.ApplicationEntity;
 import org.dcm4che3.net.Device;
 import org.dcm4che3.net.TCGroupConfigAEExtension;
@@ -64,23 +67,36 @@ public class AlternativeTCLoader {
     private static final Logger log =
             LoggerFactory.getLogger(AlternativeTCLoader.class);
 
+    private final DicomConfigurationManager config;
+    private final boolean doCacheGroups;
 
-    DicomConfiguration config;
-    private TCConfiguration tcConfig;
+    private TCConfiguration tcGroups;
 
-    public AlternativeTCLoader(DicomConfiguration config) {
+
+    public AlternativeTCLoader(DicomConfigurationManager config, boolean doCacheGroups) {
         this.config = config;
+        this.doCacheGroups = doCacheGroups;
     }
 
 
     private TCConfiguration getTCConfig() throws ConfigurationException {
-        if (tcConfig == null)
-            tcConfig = config.getDicomConfigurationExtension(TransferCapabilityConfigExtension.class).getTransferCapabilityConfig();
-        return tcConfig;
+
+        TCConfiguration tcGroups = null;
+        if (doCacheGroups) {
+            tcGroups = this.tcGroups;
+        }
+
+        if (tcGroups != null && tcGroups.getTransferCapabilityGroups() != null && tcGroups.getTransferCapabilityGroups().size() > 0) {
+            return tcGroups;
+        }
+        return this.tcGroups = config.getDicomConfigurationExtension(TransferCapabilityConfigExtension.class).getTransferCapabilityConfig();
     }
 
 
     void initGroupBasedTCs(Device d) throws ConfigurationException {
+
+        TCConfiguration tcConfig = getTCConfig();
+
         for (ApplicationEntity applicationEntity : d.getApplicationEntities()) {
             TCGroupConfigAEExtension tcGroupConfigAEExtension = applicationEntity.getAEExtension(TCGroupConfigAEExtension.class);
             if (tcGroupConfigAEExtension != null) {
@@ -88,17 +104,21 @@ public class AlternativeTCLoader {
                 // override any entries that might have been added before
                 applicationEntity.setTransferCapabilities(new ArrayList<TransferCapability>());
 
+                // Always add CEcho SCP
+                applicationEntity.addTransferCapability(new TransferCapability("CEcho SCP", UID.VerificationSOPClass, TransferCapability.Role.SCP, UID.ImplicitVRLittleEndian));
+
                 // add processed TCs from pre-configured groups to this ae
                 for (Map.Entry<String, TCGroupConfigAEExtension.TCGroupDetails> tcGroupRefEntry : tcGroupConfigAEExtension.getScpTCs().entrySet())
-                    addTC(applicationEntity, getTCConfig(), tcGroupRefEntry, TransferCapability.Role.SCP);
+                    addTC(applicationEntity, tcConfig, tcGroupRefEntry, TransferCapability.Role.SCP);
                 for (Map.Entry<String, TCGroupConfigAEExtension.TCGroupDetails> tcGroupRefEntry : tcGroupConfigAEExtension.getScuTCs().entrySet())
-                    addTC(applicationEntity, getTCConfig(), tcGroupRefEntry, TransferCapability.Role.SCU);
+                    addTC(applicationEntity, tcConfig, tcGroupRefEntry, TransferCapability.Role.SCU);
 
             }
         }
     }
 
 
+    @SuppressWarnings("Duplicates")
     private void addTC(ApplicationEntity applicationEntity, TCConfiguration tcConfig, Map.Entry<String, TCGroupConfigAEExtension.TCGroupDetails> tcGroupRefEntry, TransferCapability.Role role) throws ConfigurationException {
         TCConfiguration.TCGroup tcGroup = tcConfig.getTransferCapabilityGroups().get(tcGroupRefEntry.getKey());
 
@@ -147,5 +167,9 @@ public class AlternativeTCLoader {
 
     public void cleanUpTransferCapabilitiesInDeviceNode(Device device, Map<String, Object> deviceNode) {
         Nodes.removeNodes(deviceNode, DicomPath.AllTCsOfAllAEsWithTCGroupExt.path());
+    }
+
+    public void refreshTCGroups() {
+        tcGroups = null;
     }
 }

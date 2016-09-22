@@ -471,7 +471,7 @@ public class Attributes implements Serializable {
     public SpecificCharacterSet getSpecificCharacterSet(VR vr) {
         return vr.useSpecificCharacterSet()
                 ? getSpecificCharacterSet()
-                : SpecificCharacterSet.DEFAULT;
+                : SpecificCharacterSet.DICOM_DEFAULT;
     }
 
     private double[] decodeDSValue(int index) {
@@ -485,7 +485,7 @@ public class Attributes implements Serializable {
         double[] ds;
         if (value instanceof byte[])
             value = vrs[index].toStrings((byte[]) value, bigEndian,
-                    SpecificCharacterSet.DEFAULT);
+                    SpecificCharacterSet.DICOM_DEFAULT);
         if (value instanceof String) {
             String s = (String) value;
             if (s.isEmpty()) {
@@ -518,7 +518,7 @@ public class Attributes implements Serializable {
         int[] is;
         if (value instanceof byte[])
             value = vrs[index].toStrings((byte[]) value, bigEndian,
-                    SpecificCharacterSet.DEFAULT);
+                    SpecificCharacterSet.DICOM_DEFAULT);
         if (value instanceof String) {
             String s = (String) value;
             if (s.isEmpty()) {
@@ -1459,8 +1459,9 @@ public class Attributes implements Serializable {
             return cs;
 
         if (containsSpecificCharacterSet)
-            cs = SpecificCharacterSet.valueOf(
-                    getStrings(null, Tag.SpecificCharacterSet, VR.CS));
+            cs = containsValue(Tag.SpecificCharacterSet) ? 
+            		SpecificCharacterSet.valueOf(getStrings(null, Tag.SpecificCharacterSet, VR.CS)) : 
+            		SpecificCharacterSet.DEFAULT;
         else if (parent != null)
             return parent.getSpecificCharacterSet();
         else
@@ -2079,23 +2080,29 @@ public class Attributes implements Serializable {
 
                 int indexOfOriginalSequence = indexOf(tag);
 
-                if (indexOfOriginalSequence < 0) {
+                if (indexOfOriginalSequence < 0 ) {
                     //Trying to recursively update an empty sequence, fallback to whole copy
                     set(privateCreator, tag, (Sequence) value, null);
                 } else {
-
                     Sequence original = (Sequence) values[indexOfOriginalSequence];
-                    Attributes updated = ((Sequence) value).get(0);
 
-                    if (updated==null)
-                        continue;
-
-                    if (original.size() > 1 || updated.size()>1)
-                        //Trying to recursively update a sequence with more than 1 item: fallback to whole copy
+                    if (original.size() == 0) {
+                        //as above, fallback to whole copy
                         set(privateCreator, tag, (Sequence) value, null);
-                    else
-                        //both original and updated sequences have 1 item
-                            original.get(0).updateRecursive(updated);
+                    }
+                    else {
+                        Sequence updated = ((Sequence) value);
+
+                        if (updated==null || updated.size() == 0)
+                            continue;
+
+                        if (original.size() > 1 || updated.size()>1)
+                            //Trying to recursively update a sequence with more than 1 item: fallback to whole copy
+                            set(privateCreator, tag, updated, null);
+                        else
+                            //both original and updated sequences have 1 item
+                            original.get(0).updateRecursive(updated.get(0));
+                    }
                 }
             } else if (value instanceof Fragments) {
                 set(privateCreator, tag, (Fragments) value);
@@ -2138,14 +2145,17 @@ public class Attributes implements Serializable {
 
         Attributes filtered = new Attributes();
         for (int tag : tags()) {
-            if (selection.contains(tag)) {
-                if (selection.getValue(tag).equals(getValue(tag)))
-                    filtered.setValue(tag, getVR(tag), getValue(tag));
+            if (selection.contains(getPrivateCreator(tag),tag)) {
+                if (equalValues(selection, indexOf(getPrivateCreator(tag),tag),
+                        selection.indexOf(getPrivateCreator(tag),tag)))
+                            filtered.setValue(getPrivateCreator(tag),tag, getVR(tag), getValue(tag));
             }
-            if (getVR(tag) == VR.SQ) {
-                Attributes seq = getNestedDataset(tag).filter(selection);
+            Attributes nested;
+            if (getVR(getPrivateCreator(tag),tag) == VR.SQ &&
+                    (nested = getNestedDataset(getPrivateCreator(tag),tag))!=null) {
+                Attributes seq = nested.filter(selection);
                 if (seq.size()>0) {
-                    Sequence sequence = filtered.newSequence(tag,seq.size());
+                    Sequence sequence = filtered.newSequence(getPrivateCreator(tag),tag,seq.size());
                     sequence.add(0,seq);
                 }
             }

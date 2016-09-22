@@ -44,6 +44,9 @@ import org.dcm4che3.conf.core.api.Path;
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.util.Arrays;
+import java.util.List;
+
 /**
  * @author Roman K
  */
@@ -56,6 +59,63 @@ public class TypeSafeConfigurationTest {
                 "/dicomConfigurationRoot/dicomDevicesRoot/dcm4chee-arc"
         );
 
+        Assert.assertEquals(
+                new Path("dicomConfigurationRoot", "dicomDevicesRoot", "d#cm4chee-arc").toSimpleEscapedPath(),
+                "/dicomConfigurationRoot/dicomDevicesRoot/d\\#cm4chee-arc"
+        );
+
+        Assert.assertEquals(
+                new Path("dicomConfigurationRoot", "dicomDevicesRoot/", "dcm4chee-arc").toSimpleEscapedPath(),
+                "/dicomConfigurationRoot/dicomDevicesRoot\\//dcm4chee-arc"
+        );
+
+
+        Assert.assertEquals(
+                new Path("dicomConfigurationRoot", 1234, "dcm4chee-arc").toSimpleEscapedPath(),
+                "/dicomConfigurationRoot/#1234/dcm4chee-arc"
+        );
+
     }
+
+
+    @Test
+    public void simplePathValidation() {
+
+        Assert.assertNull(Nodes.fromSimpleEscapedPathOrNull("/dicomConfigurationRoot/dicomDevicesRoot[@name='someName']"));
+        Assert.assertNull(Nodes.fromSimpleEscapedPathOrNull("/dicomConfigurationRoot/dicomDevicesRoot[name='someName']"));
+        Assert.assertNull(Nodes.fromSimpleEscapedPathOrNull("/dicomConfigurationRoot/dicomDevicesRoot/*"));
+        Assert.assertNotNull(Nodes.fromSimpleEscapedPathOrNull("/dicomConfigurationRoot/dicomDevicesRoot/arc"));
+    }
+
+    @Test
+    public void simpleOrPersistablePathValidation() {
+
+        Assert.assertEquals(
+                Arrays.asList("dicomConfigurationRoot", "dicomDevicesRoot", "someName"),
+                Nodes.simpleOrPersistablePathToPathItemsOrNull("/dicomConfigurationRoot/dicomDevicesRoot[@name='someName']")
+        );
+
+        Assert.assertEquals(
+                Arrays.asList("dicomConfigurationRoot", "dicomDevicesRoot", "someName", "hi"),
+                Nodes.simpleOrPersistablePathToPathItemsOrNull("/dicomConfigurationRoot/dicomDevicesRoot[@name='someName']/hi")
+        );
+
+        Assert.assertEquals(
+                Arrays.asList("dicomConfigurationRoot", "dicomDevicesRoot", "someName"),
+                Nodes.simpleOrPersistablePathToPathItemsOrNull("/dicomConfigurationRoot/dicomDevicesRoot/someName")
+        );
+
+        Assert.assertEquals(
+                null,
+                Nodes.simpleOrPersistablePathToPathItemsOrNull("/dicomConfigurationRoot/dicomDevicesRoot[@id='1']/someName")
+        );
+
+        Assert.assertEquals(
+                null,
+                Nodes.simpleOrPersistablePathToPathItemsOrNull("/dicomConfigurationRoot/dicomDevicesRoot/*/someName")
+        );
+
+    }
+
 
 }

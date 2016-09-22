@@ -39,8 +39,12 @@
 package org.dcm4che3.conf.dicom;
 
 import org.dcm4che3.conf.ConfigurationSettingsLoader;
+import org.dcm4che3.conf.core.DefaultBeanVitalizer;
+import org.dcm4che3.conf.core.ExtensionMergingConfiguration;
 import org.dcm4che3.conf.core.api.Configuration;
 import org.dcm4che3.conf.core.api.ConfigurationException;
+import org.dcm4che3.conf.core.api.Path;
+import org.dcm4che3.conf.core.index.ReferenceIndexingDecorator;
 import org.dcm4che3.conf.core.normalization.DefaultsAndNullFilterDecorator;
 import org.dcm4che3.conf.core.olock.HashBasedOptimisticLockingConfiguration;
 import org.dcm4che3.conf.core.storage.SimpleCachingConfigurationDecorator;
@@ -63,11 +67,13 @@ public class DicomConfigurationBuilder {
     private static Logger LOG = LoggerFactory
             .getLogger(DicomConfigurationBuilder.class);
 
+    private boolean extensionMerge = false;
     private boolean cache = false;
     private Hashtable<?, ?> ldapProps = null;
     private Configuration configurationStorage = null;
     private Map<Class, List<Class>> extensionClassesMap = new HashMap<Class, List<Class>>();
     private boolean doOptimisticLocking = false;
+    private boolean uuidIndexing = true;
 
     private void setLdapProps(Hashtable<?, ?> ldapProps) {
         this.ldapProps = ldapProps;
@@ -121,8 +127,24 @@ public class DicomConfigurationBuilder {
         return this;
     }
 
+    public DicomConfigurationBuilder extensionMerge(boolean extensionMerge) {
+        this.extensionMerge = extensionMerge;
+        return this;
+    }
+
     public DicomConfigurationBuilder cache(boolean cache) {
         this.cache = cache;
+        return this;
+    }
+
+
+    public DicomConfigurationBuilder uuidIndexing() {
+        this.uuidIndexing = true;
+        return this;
+    }
+
+    public DicomConfigurationBuilder disableUuidIndexing() {
+        this.uuidIndexing = false;
         return this;
     }
 
@@ -178,12 +200,20 @@ public class DicomConfigurationBuilder {
         if (cache)
             configurationStorage = new SimpleCachingConfigurationDecorator(configurationStorage, props);
 
+        if(extensionMerge)
+            configurationStorage = new ExtensionMergingConfiguration(configurationStorage, allExtensions);
+
+        if (uuidIndexing)
+            configurationStorage = new ReferenceIndexingDecorator(configurationStorage, new HashMap<String, Path>());
+
         if (doOptimisticLocking)
-            configurationStorage = new HashBasedOptimisticLockingConfiguration(configurationStorage, allExtensions, configurationStorage);
+            configurationStorage = new HashBasedOptimisticLockingConfiguration(configurationStorage, allExtensions);
 
         configurationStorage = new DefaultsAndNullFilterDecorator(
                 configurationStorage,
-                allExtensions, CommonDicomConfiguration.createDefaultDicomVitalizer());
+                allExtensions,
+                CommonDicomConfiguration.createDefaultDicomVitalizer()
+        );
 
         return configurationStorage;
     }
@@ -204,6 +234,7 @@ public class DicomConfigurationBuilder {
         return new DicomConfigurationBuilder(props);
     }
 
+    @Deprecated
     public static DicomConfigurationBuilder newLdapConfigurationBuilder(Hashtable<?, ?> ldapProps)
             throws ConfigurationException {
         Hashtable<Object, Object> props = new Hashtable<Object, Object>();

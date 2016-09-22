@@ -39,6 +39,7 @@
  */
 package org.dcm4che3.conf.dicom;
 
+import org.dcm4che3.conf.core.api.Path;
 import org.dcm4che3.conf.core.util.PathPattern;
 
 import java.util.HashMap;
@@ -64,7 +65,12 @@ public enum DicomPath {
     DeviceNameByUUID,
     DeviceUUIDByAnyUUID,
     DeviceByNameForWrite,
-    DeviceByNameForRead;
+    DeviceByNameForRead,
+    AETransferCapabilities;
+
+    public static final Path TC_GROUPS_PATH = new Path("dicomConfigurationRoot","globalConfiguration","dcmTransferCapabilities");
+    public static final Path CONFIG_ROOT_PATH = new Path("dicomConfigurationRoot");
+
 
     public static final Map<DicomPath, String> PATHS = new HashMap<DicomPath, String>();
     public static final Map<DicomPath, PathPattern> PATH_PATTERNS = new HashMap<DicomPath, PathPattern>();
@@ -87,17 +93,30 @@ public enum DicomPath {
 
         // single-result getNode (also can be used to store nodes)
         PATHS.put(/***************/ConfigRoot, "/dicomConfigurationRoot");
-        PATHS.put(/*************/DeviceByNameForWrite, "/dicomConfigurationRoot/dicomDevicesRoot[@name='{deviceName}']");
+        PATHS.put(/*****/DeviceByNameForWrite, "/dicomConfigurationRoot/dicomDevicesRoot[@name='{deviceName}']");
 
-        PATHS.put(/*************/DeviceByNameForRead, "/dicomConfigurationRoot/dicomDevicesRoot/{deviceName}");
+        PATHS.put(/******/DeviceByNameForRead, "/dicomConfigurationRoot/dicomDevicesRoot/{deviceName}");
 
         // Transfer capabilities
-        PATHS.put(/*****************/TCGroups, "/dicomConfigurationRoot/globalConfiguration/dcmTransferCapabilities");
+        PATHS.put(/*****************/TCGroups, TC_GROUPS_PATH.toSimpleEscapedXPath());
         PATHS.put(AllTCsOfAllAEsWithTCGroupExt, "dicomNetworkAE/*[aeExtensions/TCGroupConfigAEExtension]/dcmTransferCapability");
+        PATHS.put(/****/AETransferCapabilities, "/dcmTransferCapability");
 
 
         for (Map.Entry<DicomPath, String> entry : PATHS.entrySet()) {
             PATH_PATTERNS.put(entry.getKey(), new PathPattern(entry.getValue()));
+        }
+    }
+
+    public static Path devicePath(String name) {
+        return new Path("dicomConfigurationRoot", "dicomDevicesRoot", name);
+    }
+
+    public static void validateDevicePath(Path path) {
+        if (path.getPathItems().size()>3 ||
+                !path.getPathItems().get(0).equals("dicomConfigurationRoot") ||
+                !path.getPathItems().get(1).equals("dicomDevicesRoot")) {
+            throw new IllegalArgumentException("Unexpected path:" + path);
         }
     }
 
@@ -115,6 +134,10 @@ public enum DicomPath {
 
     public PathPattern.PathParser parse(String path) {
         return PATH_PATTERNS.get(this).parse(path);
+    }
+
+    public PathPattern.PathParser parseIfMatches(String path) {
+        return PATH_PATTERNS.get(this).parseIfMatches(path);
     }
 
     /**

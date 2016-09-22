@@ -42,15 +42,12 @@ package org.dcm4che3.conf.core.util;
 import org.dcm4che3.conf.core.Nodes;
 import org.dcm4che3.conf.core.api.Configuration;
 import org.dcm4che3.conf.core.api.ConfigurationException;
-import org.dcm4che3.conf.core.api.internal.AnnotatedConfigurableProperty;
-import org.dcm4che3.conf.core.api.internal.ConfigIterators;
+import org.dcm4che3.conf.core.api.internal.ConfigProperty;
+import org.dcm4che3.conf.core.api.internal.ConfigReflection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.Map.Entry;
 
 @SuppressWarnings("unchecked")
@@ -59,7 +56,17 @@ public class ConfigNodeTraverser {
     private static Logger log = LoggerFactory.getLogger(ConfigNodeTraverser.class);
 
     public interface ConfigNodeTypesafeFilter {
-        boolean beforeNode(Map<String, Object> containerNode, Class containerNodeClass, AnnotatedConfigurableProperty property) throws ConfigurationException;
+        /**
+         * @return if returns true, traversal will skip going inside this node
+         */
+        boolean beforeNode(Map<String, Object> containerNode, Class containerNodeClass, ConfigProperty property) throws ConfigurationException;
+    }
+
+    public interface ConfigNodesTypesafeFilter {
+        /**
+         * @return if returns true, traversal will skip going inside this node
+         */
+        void beforeNodes(Map<String, Object> containerNode1, Map<String, Object> containerNode2, Class containerNodeClass, ConfigProperty property) throws ConfigurationException;
     }
 
     public static class AConfigNodeFilter {
@@ -78,10 +85,10 @@ public class ConfigNodeTraverser {
         public void beforeList(Collection list) {
         }
 
-        public void beforeListElement(Collection list, Object element) {
+        public void beforeListElement(Collection list, int index, Object element) {
         }
 
-        public void afterListElement(Collection list, Object element) {
+        public void afterListElement(Collection list, int index, Object element) {
         }
 
         public void afterList(Collection list) {
@@ -139,7 +146,7 @@ public class ConfigNodeTraverser {
         }
     }
 
-    public static void traverseNodeTypesafe(Object node, AnnotatedConfigurableProperty containerProperty, List<Class> allExtensionClasses, ConfigNodeTypesafeFilter filter) throws ConfigurationException {
+    public static void traverseNodeTypesafe(Object node, ConfigProperty containerProperty, List<Class> allExtensionClasses, ConfigNodeTypesafeFilter filter) throws ConfigurationException {
 
         // if because of any reason this is not a map (e.g. a reference or a custom adapter for a configurableclass),
         // we don't go deeper
@@ -150,8 +157,9 @@ public class ConfigNodeTraverser {
 
         Map<String, Object> containerNode = (Map<String, Object>) node;
 
-        List<AnnotatedConfigurableProperty> properties = ConfigIterators.getAllConfigurableFieldsAndSetterParameters(containerProperty.getRawClass());
-        for (AnnotatedConfigurableProperty property : properties) {
+
+        List<ConfigProperty> properties = ConfigReflection.getAllConfigurableFields(containerProperty.getRawClass());
+        for (ConfigProperty property : properties) {
             Object childNode = containerNode.get(property.getAnnotatedName());
 
             if (filter.beforeNode(containerNode, containerProperty.getRawClass(), property)) continue;
@@ -200,7 +208,13 @@ public class ConfigNodeTraverser {
 
                     for (Entry<String, Object> entry : extensionsMap.entrySet()) {
                         try {
-                            traverseNodeTypesafe(entry.getValue(), new AnnotatedConfigurableProperty(Extensions.getExtensionClassBySimpleName(entry.getKey(), allExtensionClasses)), allExtensionClasses, filter);
+                            traverseNodeTypesafe(
+                                    entry.getValue(),
+                                    ConfigReflection.getDummyPropertyForClass(Extensions.getExtensionClassBySimpleName(entry.getKey(), allExtensionClasses)),
+                                    allExtensionClasses,
+                                    filter
+                            );
+
                         } catch (ClassNotFoundException e) {
                             // noop
                             log.debug("Extension class {} not found, parent node class {} ", entry.getKey(), containerProperty.getRawClass().getName());
@@ -217,6 +231,168 @@ public class ConfigNodeTraverser {
         }
     }
 
+    public static void dualTraverseNodeTypesafe(Object node1, Object node2, ConfigProperty containerProperty, List<Class> allExtensionClasses, ConfigNodesTypesafeFilter filter) throws ConfigurationException {
+
+        // if because of any reason these are not maps (e.g. a reference or a custom adapter for a configurableclass),
+        // we don't go deeper
+        if (!(node1 instanceof Map) || !(node2 instanceof Map)) return;
+
+        // if that's a reference, don't traverse deeper
+        if (containerProperty.isReference()) return;
+
+        Map<String, Object> containerNode1 = (Map<String, Object>) node1;
+        Map<String, Object> containerNode2 = (Map<String, Object>) node2;
+
+
+        List<ConfigProperty> properties = ConfigReflection.getAllConfigurableFields(containerProperty.getRawClass());
+        for (ConfigProperty property : properties) {
+
+            filter.beforeNodes(containerNode1, containerNode2, containerProperty.getRawClass(), property);
+
+            Object childNode1 = containerNode1.get(property.getAnnotatedName());
+            Object childNode2 = containerNode2.get(property.getAnnotatedName());
+
+            if (childNode1 == null || childNode2 == null) continue;
+
+            // if the property is a configclass
+            if (property.isConfObject()) {
+                dualTraverseNodeTypesafe(childNode1, childNode2, property, allExtensionClasses, filter);
+                continue;
+            }
+
+            // collection, where a generics parameter is a configurable class or it is an array with comp type of configurableClass
+            if (property.isCollectionOfConfObjects() || property.isArrayOfConfObjects()) {
+
+                List<Map<String, Object>> nodeList1 = (List) childNode1;
+                List<Map<String, Object>> nodeList2 = (List) childNode2;
+
+                boolean allUuids = allElementsAreNodesAndHaveUuids(nodeList1)
+                        && allElementsAreNodesAndHaveUuids(nodeList2);
+
+                if (allUuids) {
+                    // match on #uuid
+                    // extract Map uuid -> index
+                    Map<String, Integer> index1 = new HashMap<String, Integer>();
+
+                    int i = 0;
+                    for (Map<String, Object> node : nodeList1) {
+                        index1.put((String) node.get(Configuration.UUID_KEY), i);
+                        i++;
+                    }
+
+                    for (Map<String, Object> node : nodeList2) {
+
+                        Object uuid = node.get(Configuration.UUID_KEY);
+                        Integer elem1Ind = index1.get(uuid);
+
+                        if (elem1Ind != null) {
+                            // found match
+                            dualTraverseNodeTypesafe(
+                                    nodeList1.get(elem1Ind),
+                                    node,
+                                    property.getPseudoPropertyForConfigClassCollectionElement(),
+                                    allExtensionClasses,
+                                    filter
+                            );
+                        }
+                    }
+                }
+                continue;
+            }
+
+            // map, where a value generics parameter is a configurable class
+            if (property.isMapOfConfObjects()) {
+
+
+                Map<String, Map<String, Object>> mapNode1 = (Map) childNode1;
+                Map<String, Map<String, Object>> mapNode2 = (Map) childNode2;
+
+                if (allEntriesAreNodesAndHaveUuids(mapNode1) &&
+                        allEntriesAreNodesAndHaveUuids(mapNode2)) {
+                    // conf objects with uuids
+
+                    // match on #uuid
+                    // extract Map uuid -> index
+                    Map<String, String> index1 = new HashMap<String, String>();
+                    for (Entry<String, Map<String, Object>> stringMapEntry : mapNode1.entrySet()) {
+                        index1.put(
+                                (String) stringMapEntry.getValue().get(Configuration.UUID_KEY),
+                                stringMapEntry.getKey()
+                        );
+                    }
+
+                    for (Entry<String, Map<String, Object>> stringMapEntry : mapNode2.entrySet()) {
+                        Object uuidInSecondMapValue = stringMapEntry.getValue().get(Configuration.UUID_KEY);
+                        String mapKeyInFirstMap = index1.get(uuidInSecondMapValue);
+
+                        if (mapKeyInFirstMap != null) {
+                            dualTraverseNodeTypesafe(
+                                    mapNode1.get(mapKeyInFirstMap),
+                                    stringMapEntry.getValue(),
+                                    property.getPseudoPropertyForConfigClassCollectionElement(),
+                                    allExtensionClasses,
+                                    filter);
+
+                        }
+
+                    }
+
+
+                } else {
+                    // conf objects without uuids
+
+                    try {
+                        Map<String, Object> collection1 = (Map<String, Object>) childNode1;
+                        Map<String, Object> collection2 = (Map<String, Object>) childNode2;
+
+                        for (String key : collection1.keySet()) {
+                            dualTraverseNodeTypesafe(
+                                    collection1.get(key),
+                                    collection2.get(key),
+                                    property.getPseudoPropertyForConfigClassCollectionElement(),
+                                    allExtensionClasses,
+                                    filter
+                            );
+                        }
+
+                    } catch (ClassCastException e) {
+                        log.warn("Map is malformed", e);
+                    }
+                }
+
+                continue;
+            }
+
+            // extensions map
+            if (property.isExtensionsProperty()) {
+
+                try {
+                    Map<String, Object> extensionsMap1 = (Map<String, Object>) childNode1;
+                    Map<String, Object> extensionsMap2 = (Map<String, Object>) childNode2;
+
+                    for (String key : extensionsMap1.keySet()) {
+                        try {
+
+                            dualTraverseNodeTypesafe(
+                                    extensionsMap1.get(key),
+                                    extensionsMap2.get(key),
+                                    ConfigReflection.getDummyPropertyForClass(Extensions.getExtensionClassBySimpleName(key, allExtensionClasses)),
+                                    allExtensionClasses,
+                                    filter
+                            );
+
+                        } catch (ClassNotFoundException e) {
+                            // noop
+                            log.debug("Extension class {} not found, parent node class {} ", key, containerProperty.getRawClass().getName());
+                        }
+                    }
+
+                } catch (ClassCastException e) {
+                    log.warn("Extensions are malformed", e);
+                }
+            }
+        }
+    }
 
     public static void traverseMapNode(Object node, AConfigNodeFilter filter) {
 
@@ -231,33 +407,44 @@ public class ConfigNodeTraverser {
 
                 filter.beforeNodeElement(map, key, value);
 
-                if (Nodes.isPrimitive(value))
+                if (Nodes.isPrimitive(value)) {
                     filter.onPrimitiveNodeElement(map, key, value);
-                else if (value instanceof Map) traverseMapNode(value, filter);
-                else if (value instanceof Collection) {
-                    Collection collection = (Collection) value;
+                } else if (value instanceof Map) {
+                    traverseMapNode(value, filter);
+                } else if (value instanceof List) {
 
-                    filter.beforeList(collection);
-                    for (Object o : collection) {
-                        filter.beforeListElement(collection, o);
+                    List list = (List) value;
+                    filter.beforeList(list);
+                    for (int i = 0; i < list.size(); i++) {
 
-                        if (Nodes.isPrimitive(o))
-                            filter.onPrimitiveListElement(collection, o);
-                        else if (o instanceof Map) traverseMapNode(o, filter);
-                        else throw new IllegalArgumentException("List of lists is not allowed");
+                        Object o = list.get(i);
 
-                        filter.afterListElement(collection, o);
+                        filter.beforeListElement(list, i, o);
+
+                        if (Nodes.isPrimitive(o)) {
+                            filter.onPrimitiveListElement(list, o);
+                        } else if (o instanceof Map) {
+                            traverseMapNode(o, filter);
+                        } else {
+                            throw new IllegalArgumentException("List is only allowed to contain primitive elements and map nodes. " +
+                                    "Encountered " + o.getClass() + " in list " + key);
+                        }
+
+                        filter.afterListElement(list, i, o);
                     }
-                    filter.afterList(collection);
+                    filter.afterList(list);
+                } else {
+                    throw new IllegalArgumentException("Illegal node type " + value.getClass() + ", node " + value);
                 }
+
                 filter.afterNodeElement(map, key, value);
             }
+
             filter.afterNode(map);
 
         } else
             throw new IllegalArgumentException("A composite config node must be a Map<String,Object>");
     }
-
 
     /**
      * Traverses with in-depth search and applies dual filter.
@@ -269,18 +456,57 @@ public class ConfigNodeTraverser {
 
         filter.beforeNode(node1, node2);
 
-        if (node1 != null && node2 != null)
-            for (Map.Entry<String, Object> objectEntry : node1.entrySet())
-                if (node2.containsKey(objectEntry.getKey())) {
+        if (node1 != null && node2 != null) {
 
-                    filter.beforeNodeProperty(objectEntry.getKey());
 
-                    Object node1El = objectEntry.getValue();
-                    Object node2El = node2.get(objectEntry.getKey());
-                    dualTraverseProperty(node1El, node2El, filter);
 
-                    filter.afterNodeProperty(objectEntry.getKey());
+            if (allEntriesAreNodesAndHaveUuids(node1) &&
+                    allEntriesAreNodesAndHaveUuids(node2)) {
+                // conf objects with uuids
+
+                Map<String, Map<String, Object>> mapNode1 = (Map) node1;
+                Map<String, Map<String, Object>> mapNode2 = (Map) node2;
+
+                // match on #uuid
+                // extract Map uuid -> index
+                Map<String, String> index1 = new HashMap<String, String>();
+                for (Entry<String, Map<String, Object>> stringMapEntry : mapNode1.entrySet()) {
+                    index1.put(
+                            (String) stringMapEntry.getValue().get(Configuration.UUID_KEY),
+                            stringMapEntry.getKey()
+                    );
                 }
+
+                for (Entry<String, Map<String, Object>> stringMapEntry : mapNode2.entrySet()) {
+                    Object uuidInSecondMapValue = stringMapEntry.getValue().get(Configuration.UUID_KEY);
+                    String mapKeyInFirstMap = index1.get(uuidInSecondMapValue);
+
+                    if (mapKeyInFirstMap != null) {
+                        dualTraverseProperty(
+                                mapNode1.get(mapKeyInFirstMap),
+                                stringMapEntry.getValue(),
+                                filter);
+                    }
+
+                }
+
+
+            } else {
+                // conf objects without uuids
+
+                for (Entry<String, Object> objectEntry : node1.entrySet())
+                    if (node2.containsKey(objectEntry.getKey())) {
+
+                        filter.beforeNodeProperty(objectEntry.getKey());
+
+                        Object node1El = objectEntry.getValue();
+                        Object node2El = node2.get(objectEntry.getKey());
+                        dualTraverseProperty(node1El, node2El, filter);
+
+                        filter.afterNodeProperty(objectEntry.getKey());
+                    }
+            }
+        }
 
         filter.afterNode(node1, node2);
     }
@@ -351,6 +577,14 @@ public class ConfigNodeTraverser {
 
     private static boolean allElementsAreNodesAndHaveUuids(List list) {
         for (Object o : list) {
+            if (!(o instanceof Map)) return false;
+            if (!(((Map) o).get(Configuration.UUID_KEY) instanceof String)) return false;
+        }
+        return true;
+    }
+
+    private static boolean allEntriesAreNodesAndHaveUuids(Map map) {
+        for (Object o : map.values()) {
             if (!(o instanceof Map)) return false;
             if (!(((Map) o).get(Configuration.UUID_KEY) instanceof String)) return false;
         }

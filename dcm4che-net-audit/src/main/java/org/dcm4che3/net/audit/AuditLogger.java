@@ -38,8 +38,12 @@
 
 package org.dcm4che3.net.audit;
 
+import com.lmax.disruptor.*;
+import com.lmax.disruptor.dsl.Disruptor;
+import com.lmax.disruptor.dsl.ProducerType;
 import org.dcm4che3.audit.*;
 import org.dcm4che3.audit.AuditMessages.RoleIDCode;
+import org.dcm4che3.audit.AuditMessage;
 import org.dcm4che3.conf.core.api.ConfigurableClass;
 import org.dcm4che3.conf.core.api.ConfigurableProperty;
 import org.dcm4che3.conf.core.api.LDAP;
@@ -60,6 +64,8 @@ import java.net.*;
 import java.nio.charset.Charset;
 import java.security.GeneralSecurityException;
 import java.util.*;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -74,6 +80,8 @@ public class AuditLogger extends DeviceExtension {
     private static final String DICOM_PRIMARY_DEVICE_TYPE = "dicomPrimaryDeviceType";
 
     private static final String DEVICE_NAME_IN_FILENAME_SEPARATOR = "-._";
+
+    private static Disruptor<AuditMessageEvent> disruptor;
 
     public enum SendStatus {
         SENT, QUEUED, SUPPRESSED
@@ -309,7 +317,11 @@ public class AuditLogger extends DeviceExtension {
     	for (ActiveConnection c : activeConnection.values())
     		SafeClose.close(c);
         activeConnection.clear();
-        this.auditRecordRepositoryDevices = arrDevices;
+        if(arrDevices==null){
+            this.auditRecordRepositoryDevices.clear();
+        }else{
+            this.auditRecordRepositoryDevices = arrDevices;
+        }
     }
     
     public void addAuditRecordRepositoryDevice(Device device) {
@@ -460,22 +472,18 @@ public class AuditLogger extends DeviceExtension {
             } else
                 asi.setAuditEnterpriseSiteID(auditEnterpriseSiteID);
         }
-        if (auditSourceTypeCodes.length > 0) {
-            if (!auditSourceTypeCodes[0].equals(DICOM_PRIMARY_DEVICE_TYPE))
-                asi.setCode(auditSourceTypeCodes[0]);
-            for (int i = 1 ; i < auditSourceTypeCodes.length ; i++) {
-                if (auditSourceTypeCodes[i].equals(DICOM_PRIMARY_DEVICE_TYPE)) {
-                    for (String type : device.getPrimaryDeviceTypes()) {
-                        asi.getAuditSourceTypeCode().add(type+"^DCM");
-                        if (asi.getCode() == null) {
-                            asi.setCode(type);
-                            asi.setCodeSystemName("DCM");
-                            asi.setOriginalText("Dicom device type "+type);
-                        }
-                    }
-                } else {
-                    asi.getAuditSourceTypeCode().add(auditSourceTypeCodes[i]);
+        for (String code : auditSourceTypeCodes) {
+            if (code.equals(DICOM_PRIMARY_DEVICE_TYPE)) {
+                for (String type : device.getPrimaryDeviceTypes()) {
+                    AuditSourceTypeCode astc = new AuditSourceTypeCode();
+                    astc.setCode(type);
+                    astc.setCodeSystemName("DCM");
+                    asi.getAuditSourceTypeCode().add(astc);
                 }
+            } else {
+                AuditSourceTypeCode astc = new AuditSourceTypeCode();
+                astc.setCode(code);
+                asi.getAuditSourceTypeCode().add(astc);
             }
         }
         return asi;
@@ -746,6 +754,7 @@ public class AuditLogger extends DeviceExtension {
         setAuditRecordRepositoryDevices(from.auditRecordRepositoryDevices);
         setAuditSuppressCriteriaList(from.suppressAuditMessageFilters);
         device.reconfigureConnections(connections, from.connections);
+
         closeActiveConnection();
     }
 
@@ -790,6 +799,28 @@ public class AuditLogger extends DeviceExtension {
         return sendMessage(builder().createMessage(timeStamp, msg));
     }
 
+    public void writeAsync(Calendar timeStamp, AuditMessage msg)
+            throws IncompatibleConnectionException, GeneralSecurityException, IOException, InsufficientCapacityException {
+
+        if (isAuditMessageSuppressed(msg))
+            return;
+
+        RingBuffer<AuditMessageEvent> ringBuffer = getDisruptor(this).getRingBuffer();
+
+        long sequence = ringBuffer.next();  // Grab the next sequence
+        try
+        {
+            AuditMessageEvent msgenrtry = ringBuffer.get(sequence); // Get the entry in the Disruptor
+            // for the sequence
+            msgenrtry.setLogger(this);  // Fill with data
+            msgenrtry.setMessage(msg);
+        }
+        finally
+        {
+            ringBuffer.publish(sequence);
+        }
+    }
+
     public SendStatus write(Calendar timeStamp, Severity severity,
                             byte[] data, int off, int len)
             throws IncompatibleConnectionException, GeneralSecurityException, IOException {
@@ -806,8 +837,6 @@ public class AuditLogger extends DeviceExtension {
 
     private SendStatus sendMessage(DatagramPacket msg) throws IncompatibleConnectionException,
             GeneralSecurityException, IOException {
-        if (auditRecordRepositoryDevices.isEmpty())
-            throw new IllegalStateException("No AuditRecordRepositoryDevice initalized");
         String deviceName;
         SendStatus status = SendStatus.SENT;
         for (Device arrDev : auditRecordRepositoryDevices) {
@@ -1003,7 +1032,7 @@ public class AuditLogger extends DeviceExtension {
 
     private synchronized ActiveConnection activeConnection(Device arrDev)
             throws IncompatibleConnectionException {
-        ActiveConnection activeConnection = this.activeConnection.get(device.getDeviceName());
+        ActiveConnection activeConnection = this.activeConnection.get(arrDev.getDeviceName());
         if (activeConnection != null)
             return activeConnection;
 
@@ -1230,6 +1259,7 @@ public class AuditLogger extends DeviceExtension {
 
         @Override
         void sendMessage(DatagramPacket msg) throws IOException {
+
             if (ds == null)
                 ds = conn.createDatagramSocket();
 
@@ -1351,4 +1381,31 @@ public class AuditLogger extends DeviceExtension {
 
     }
 
+    public static Disruptor<AuditMessageEvent> getDisruptor(AuditLogger logger) {
+        if (disruptor == null)
+            disruptor = initializeDisruptor(logger);
+
+        return disruptor;
+    }
+
+    private static Disruptor<AuditMessageEvent> initializeDisruptor(AuditLogger logger) {
+        // Executor that will be used to construct new threads for consumers
+        Executor executor = Executors.newCachedThreadPool();
+
+        // The factory for the event
+        AuditMessageEventFactory factory = new AuditMessageEventFactory();
+
+        // Specify the size of the ring buffer, must be power of 2.
+        int bufferSize = 8;
+
+        Disruptor<AuditMessageEvent> disruptorInstance = new Disruptor<AuditMessageEvent>(factory, bufferSize, executor);
+
+        // Connect the handler
+        disruptorInstance.handleEventsWith(new AuditMessageEventHandler());
+
+        // Start the Disruptor, starts all threads running
+        disruptorInstance.start();
+
+        return disruptorInstance;
+    }
 }

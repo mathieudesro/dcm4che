@@ -1,33 +1,35 @@
 package org.dcm4che3.conf.core.util;
 
-import org.dcm4che3.conf.core.Nodes;
-
 import java.util.ArrayList;
 import java.util.List;
 
 
 public class SplittedPath {
     private final int level;
-    private List<String> outerPathItems;
-    private List<String> innerPathitems;
+    private List<Object> outerPathItems;
+    private List<Object> innerPathitems;
     private int i;
-    private List<String> pathItems;
+    private List<Object> pathItems;
 
-    public SplittedPath(String path, int level) {
-        this(Nodes.getPathItems(path), level);
-    }
-
-    public SplittedPath(List<String> pathItems, int level) {
+    public SplittedPath(List<Object> pathItems, int level) {
         this.level = level;
         this.pathItems = pathItems;
-        calc();
+        this.outerPathItems = new ArrayList<Object>();
+        this.innerPathitems = new ArrayList<Object>();
+        i = 0;
+        for (Object name : this.pathItems) {
+            if (i++ < this.level)
+                getOuterPathItems().add(name);
+            else
+                getInnerPathitems().add(name);
+        }
     }
 
-    public List<String> getOuterPathItems() {
+    public List<Object> getOuterPathItems() {
         return outerPathItems;
     }
 
-    public List<String> getInnerPathitems() {
+    public List<Object> getInnerPathitems() {
         return innerPathitems;
     }
 
@@ -35,24 +37,4 @@ public class SplittedPath {
         return i;
     }
 
-    public SplittedPath calc() {
-        setOuterPathItems(new ArrayList<String>());
-        setInnerPathitems(new ArrayList<String>());
-        i = 1;
-        for (String name : pathItems) {
-            if (i++ <= level)
-                getOuterPathItems().add(name);
-            else
-                getInnerPathitems().add(name);
-        }
-        return this;
-    }
-
-    private void setOuterPathItems(List<String> outerPathItems) {
-        this.outerPathItems = outerPathItems;
-    }
-
-    private void setInnerPathitems(List<String> innerPathitems) {
-        this.innerPathitems = innerPathitems;
-    }
 }

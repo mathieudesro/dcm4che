@@ -1,12 +1,12 @@
 package org.dcm4che3.conf.core.olock;
 
 import org.dcm4che3.conf.core.DelegatingConfiguration;
-import org.dcm4che3.conf.core.api.BatchRunner;
 import org.dcm4che3.conf.core.api.Configuration;
 import org.dcm4che3.conf.core.api.ConfigurationException;
-import org.dcm4che3.conf.core.api.internal.AnnotatedConfigurableProperty;
+import org.dcm4che3.conf.core.api.Path;
+import org.dcm4che3.conf.core.api.internal.ConfigProperty;
+import org.dcm4che3.conf.core.api.internal.ConfigReflection;
 import org.dcm4che3.conf.core.util.ConfigNodeTraverser;
-import org.dcm4che3.conf.core.util.ConfigNodeTraverser.ADualNodeFilter;
 import org.dcm4che3.conf.core.util.ConfigNodeTraverser.ConfigNodeTypesafeFilter;
 import org.dcm4che3.conf.core.Nodes;
 import org.slf4j.Logger;
@@ -16,6 +16,10 @@ import java.util.List;
 import java.util.Map;
 
 /**
+ *
+ *
+ * Caution: persistNode should be called in a transaction to ensure consistent comparison between data from backend/data being persisted,
+ * otherwise it's possible that another writer modifies something before this class obtains a lock and the changes by that writer will be lost
  *
  * Edge cases:
  * <ul>
@@ -37,83 +41,71 @@ public class HashBasedOptimisticLockingConfiguration extends DelegatingConfigura
     private static final Logger log = LoggerFactory.getLogger(HashBasedOptimisticLockingConfiguration.class);
 
     public static final String NOT_CALCULATED_YET = "not-calculated-yet";
-    private BatchRunner mergeBatchRunner;
+    public static final String OLD_OLOCK_HASH_KEY = "#old_hash";
+
     private List<Class> allExtensionClasses;
 
     /**
      * @param delegate
      * @param allExtensionClasses
-     * @param mergeBatchRunner    a batchrunner that is used by persistNode to execute read/write op to ensure consistency
      */
-    public HashBasedOptimisticLockingConfiguration(Configuration delegate, List<Class> allExtensionClasses, BatchRunner mergeBatchRunner) {
+    public HashBasedOptimisticLockingConfiguration(Configuration delegate, List<Class> allExtensionClasses) {
         super(delegate);
 
-        this.mergeBatchRunner = mergeBatchRunner;
         this.allExtensionClasses = allExtensionClasses;
     }
 
     @Override
-    public void persistNode(final String path, final Map<String, Object> configNode, final Class configurableClass) throws ConfigurationException {
-        mergeBatchRunner.runBatch(new Batch() {
-            public void run() {
+    public void persistNode(final Path path, final Map<String, Object> configNode, final Class configurableClass) throws ConfigurationException {
+        Map<String, Object> nodeBeingPersisted = (Map<String, Object>) Nodes.deepCloneNode(configNode);
 
+        // get existing node from storage
+        Map<String, Object> nodeInStorage = (Map<String, Object>) getConfigurationNode(path, configurableClass);
 
-                Map<String, Object> nodeBeingPersisted = (Map<String, Object>) Nodes.deepCloneNode(configNode);
-
-                // get existing node from storage
-                Map<String, Object> nodeInStorage = (Map<String, Object>) getConfigurationNode(path, configurableClass);
-
-                // if there is nothing in storage - just persist and leave
-                if (nodeInStorage == null) {
-                    if (nodeBeingPersisted != null)
-                        ConfigNodeTraverser.traverseMapNode(nodeBeingPersisted, new CleanupFilter(Configuration.OLOCK_HASH_KEY));
-                    delegate.persistNode(path, nodeBeingPersisted, configurableClass);
-                    return;
-                }
-
-                // save old hashes in node being persisted
-                ConfigNodeTraverser.traverseMapNode(nodeBeingPersisted, new OLockCopyFilter("#old_hash"));
-
-                // calculate current hashes in node being persisted
-                ConfigNodeTraverser.traverseMapNode(nodeBeingPersisted, new OLockHashCalcFilter("#old_hash"));
-
-                ////// merge the object /////
-                ConfigNodeTraverser.dualTraverseMapNodes(nodeInStorage, nodeBeingPersisted, new OLockMergeDualFilter());
-
-                // filter the #hash clutter out
-                ConfigNodeTraverser.traverseMapNode(nodeBeingPersisted, new CleanupFilter("#old_hash", Configuration.OLOCK_HASH_KEY));
-
-                delegate.persistNode(path, nodeBeingPersisted, configurableClass);
+        // if there is nothing in storage - just persist and leave
+        if (nodeInStorage == null) {
+            if (nodeBeingPersisted != null) {
+                ConfigNodeTraverser.traverseMapNode(nodeBeingPersisted, new CleanupFilter(Configuration.OLOCK_HASH_KEY));
             }
-        });
+            delegate.persistNode(path, nodeBeingPersisted, configurableClass);
+            return;
+        }
+
+        // save old hashes in node being persisted
+        ConfigNodeTraverser.traverseMapNode(nodeBeingPersisted, new OLockCopyFilter(OLD_OLOCK_HASH_KEY));
+
+        // calculate current hashes in node being persisted
+        ConfigNodeTraverser.traverseMapNode(nodeBeingPersisted, new OLockHashCalcFilter(OLD_OLOCK_HASH_KEY));
+
+        ////// merge the object /////
+        ConfigNodeTraverser.dualTraverseMapNodes(nodeInStorage, nodeBeingPersisted, new OLockMergeDualFilter());
+
+        // filter the #hash clutter out
+        ConfigNodeTraverser.traverseMapNode(nodeBeingPersisted, new CleanupFilter(OLD_OLOCK_HASH_KEY, Configuration.OLOCK_HASH_KEY));
+
+        delegate.persistNode(path, nodeBeingPersisted, configurableClass);
     }
 
 
     @Override
-    public Object getConfigurationNode(String path, Class configurableClass) throws ConfigurationException {
+    public Object getConfigurationNode(Path path, Class configurableClass) throws ConfigurationException {
 
-        // calculate olock hashes
         Object configurationNode = super.getConfigurationNode(path, configurableClass);
 
-        // if called with no configurableClass, omit hashes
+        //  calculate olock hashes if called with configurableClass
         if (configurableClass != null && configurationNode != null) {
-            ConfigNodeTraverser.traverseNodeTypesafe(configurationNode, new AnnotatedConfigurableProperty(configurableClass), allExtensionClasses, new HashMarkingTypesafeNodeFilter());
+
+            ConfigNodeTraverser.traverseNodeTypesafe(
+                    configurationNode,
+                    ConfigReflection.getDummyPropertyForClass(configurableClass),
+                    allExtensionClasses,
+                    new HashMarkingTypesafeNodeFilter()
+            );
+
             ConfigNodeTraverser.traverseMapNode(configurationNode, new OLockHashCalcFilter());
         }
 
         return configurationNode;
-    }
-
-    /**
-     * Copies #hash props from node1 to node2, sets their value to constant
-     */
-    public static class HashMarkingCopyFilter extends ADualNodeFilter {
-        @Override
-        public void beforeNode(Map<String, Object> node1, Map<String, Object> node2) {
-            if (node1.containsKey(OLOCK_HASH_KEY))
-                node2.put(OLOCK_HASH_KEY, NOT_CALCULATED_YET);
-
-        }
     }
 
     /**
@@ -122,7 +114,7 @@ public class HashBasedOptimisticLockingConfiguration extends DelegatingConfigura
     public static class HashMarkingTypesafeNodeFilter implements ConfigNodeTypesafeFilter {
 
         @Override
-        public boolean beforeNode(Map<String, Object> containerNode, Class containerNodeClass, AnnotatedConfigurableProperty property) throws ConfigurationException {
+        public boolean beforeNode(Map<String, Object> containerNode, Class containerNodeClass, ConfigProperty property) throws ConfigurationException {
 
             if (property.isOlockHash()) {
                 containerNode.put(OLOCK_HASH_KEY, NOT_CALCULATED_YET);

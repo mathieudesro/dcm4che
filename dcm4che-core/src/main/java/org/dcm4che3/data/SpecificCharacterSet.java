@@ -85,7 +85,6 @@ import java.nio.charset.Charset;
 import java.nio.charset.CharsetEncoder;
 import java.nio.charset.CoderResult;
 import java.nio.charset.CodingErrorAction;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.StringTokenizer;
 
@@ -94,8 +93,10 @@ import java.util.StringTokenizer;
  */
 public class SpecificCharacterSet {
     
-    public static final SpecificCharacterSet DEFAULT =
-            new SpecificCharacterSet(new Codec[]{Codec.ISO_646}, "ISO_IR 100");
+    public static final SpecificCharacterSet DICOM_DEFAULT =
+            new SpecificCharacterSet(new Codec[]{Codec.ISO_646}, new String[] {null});
+    
+    public static SpecificCharacterSet DEFAULT = DICOM_DEFAULT;
 
     private static ThreadLocal<SoftReference<Encoder>> cachedEncoder1 = 
             new ThreadLocal<SoftReference<Encoder>>();
@@ -122,9 +123,10 @@ public class SpecificCharacterSet {
         JIS_X_208("x-JIS0208", -1, 0x2442),
         JIS_X_212("JIS_X0212-1990", -1, 0x242844),
         KS_X_1001("EUC-KR", 0, 0x242943),
+        GB2312("GB2312", 0x2842, 0x242941),
         UTF_8("UTF-8", 0, 0),
         GB18030("GB18030", 0, 0);
-        
+
         private final String charsetName;
         private final int escSeq0;
         private final int escSeq1;
@@ -176,6 +178,10 @@ public class SpecificCharacterSet {
                 if (code.equals("GB18030"))
                     return Codec.GB18030;
                 break;
+            case 31:
+                if (code.equals("GBK"))
+                    return Codec.GB18030;
+                break;
             case 38:
                 if (code.equals("ISO_IR 138") || code.equals("ISO 2022 IR 138"))
                     return Codec.ISO_8859_8;
@@ -191,6 +197,10 @@ public class SpecificCharacterSet {
             case 49:
                 if (code.equals("ISO 2022 IR 149"))
                     return Codec.KS_X_1001;
+                break;
+            case 58:
+                if (code.equals("ISO 2022 IR 58"))
+                    return Codec.GB2312;
                 break;
             case 59:
                 if (code.equals("ISO 2022 IR 159"))
@@ -389,11 +399,17 @@ public class SpecificCharacterSet {
                         }
                         break;
                     case 0x2429:
-                        if (b[cur++] == 0x43) {
-                            codec = Codec.KS_X_1001;
-                            step = -1;
-                        } else { // decode invalid ESC sequence as chars
-                            sb.append(codec.decode(b, cur - 4, 4));
+                        switch (b[cur++]) {
+                            case 0x41:
+                                codec = Codec.GB2312;
+                                step = -1;
+                                break;
+                            case 0x43:
+                                codec = Codec.KS_X_1001;
+                                step = -1;
+                                break;
+                            default: // decode invalid ESC sequence as chars
+                                sb.append(codec.decode(b, cur - 4, 4));
                         }
                         break;
                     case 0x2442:
@@ -464,13 +480,21 @@ public class SpecificCharacterSet {
         }
     }
 
+    public static final void setDefaultCharacterSet(String characterSet) {
+        DEFAULT = characterSet == null ? DICOM_DEFAULT : valueOf(characterSet);
+    }
+
     public static SpecificCharacterSet valueOf(String... codes) {
         if (codes == null || codes.length == 0)
-            return DEFAULT;
+            return DICOM_DEFAULT;
 
         Codec[] infos = new Codec[codes.length];
         for (int i = 0; i < codes.length; i++)
             infos[i] = Codec.forCode(codes[i]);
+
+        if (codes.length == 1 && infos[0] == Codec.ISO_646 && DEFAULT.containsASCII())
+            return new SpecificCharacterSet(DEFAULT.codecs, codes);
+
         return codes.length > 1 ? new ISO2022(infos,codes)
                 : new SpecificCharacterSet(infos, codes);
     }

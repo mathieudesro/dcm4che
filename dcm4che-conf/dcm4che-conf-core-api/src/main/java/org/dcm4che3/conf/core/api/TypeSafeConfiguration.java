@@ -40,18 +40,43 @@
 
 package org.dcm4che3.conf.core.api;
 
+import org.dcm4che3.conf.core.context.ContextFactory;
+import org.dcm4che3.conf.core.context.LoadingContext;
+import org.dcm4che3.conf.core.api.internal.BeanVitalizer;
+
+import javax.naming.ldap.ControlFactory;
+
 /**
  * This API is work in progress, do not use it just yet.
  *
  * Highest level core configuration API.
  *
- * @author Roman K
+ * @param <R> Configuration root class
  */
-public interface TypeSafeConfiguration {
+public interface TypeSafeConfiguration<R> {
 
-    <T> T loadConfigurationObject(Path path, Class<T> clazz);
-    <T> void saveConfigurationObject(Path path, T object, Class<T> clazz);
+    <T> T load(Path path, Class<T> clazz);
+    <T> T load(Path path, Class<T> clazz, LoadingContext ctx);
 
-    void removeConfiguration(Path path);
+    <T> void save(Path path, T object, Class<T> clazz);
 
+    /**
+     * @param uuid uuid of the configurable object
+     * @param clazz expected class of the configured object
+     * @return configured object or null if an object with this UUID not found
+     */
+    <T> T findByUUID(String uuid, Class<T> clazz);
+
+    /**
+     * @param uuid uuid of the configurable object
+     * @param clazz expected class of the configured object
+     * @return configured object or null if an object with this UUID not found
+     */
+    <T> T findByUUID(String uuid, Class<T> clazz, LoadingContext ctx);
+
+    Configuration getLowLevelAccess();
+    BeanVitalizer getVitalizer();
+    ContextFactory getContextFactory();
+
+    Class<R> getRootClass();
 }

@@ -56,10 +56,29 @@ public class QCTool implements TestTool {
     private QC qc;
     private TestResult result;
 
-    public QCTool(String url, QCOperation operation
-            , Code code, String targetStudyUID) {
+    public QCTool(String url, QCOperation operation, Code code, String targetStudyUID) {
         qc = new QC(url, code, operation);
         qc.setTargetStudyUID(targetStudyUID);
+    }
+    
+    public QCTool(String url, QCOperation operation, String codeString, String targetStudyUID) {
+        this(url, operation, decodeCode(codeString), targetStudyUID);
+    }
+    
+    private static Code decodeCode(String codeString) {
+        Code code = null;
+        String[] codeComponents = codeString.split(":");
+        if(codeComponents.length < 3) {
+            throw new IllegalArgumentException("Code string specified must contain at least value, scheme designator and meaning");
+        } else {
+            if(codeComponents.length == 3) {
+                code = new Code(codeComponents[0], codeComponents[2], null,codeComponents[1]);
+            } else if(codeComponents.length == 4) {
+                code = new Code(codeComponents[0], codeComponents[2], codeComponents[3], codeComponents[1]);
+            }
+        }
+        
+        return code;
     }
 
     @Override
@@ -78,13 +97,13 @@ public class QCTool implements TestTool {
      * @param testDescription
      *            the test description
      * @param mergeUIDs
-     *            the uids for the studies to merge
+     *            the sop instance uids of the studies to merge
      * @param targetStudyAttrs
      *            the target study attributes to be updated
      * @param targetSeriesAttrs
      *            the target series attributes to be updated
      * @param pid
-     *            patient ID
+     *            the patient ID of the target patient
      */
     public void merge(String testDescription,
             ArrayList<String> mergeUIDs, Attributes targetStudyAttrs,

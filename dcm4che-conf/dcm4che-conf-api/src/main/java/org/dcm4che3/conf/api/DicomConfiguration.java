@@ -41,6 +41,8 @@ import org.dcm4che3.conf.core.api.ConfigurationException;
 import org.dcm4che3.net.ApplicationEntity;
 import org.dcm4che3.net.Device;
 
+import java.util.List;
+
 /**
  * This interface should be used by vendors/integrators to access and manipulate the DICOM configuration in a type-safe way.
  * Always give the preference to this interface when possible.
@@ -67,8 +69,6 @@ public interface DicomConfiguration {
     ApplicationEntity findApplicationEntityByUUID(String uuid) throws ConfigurationException;
 
     /**
-     * DO NOT USE IT YET - not supported.
-     *
      * Looks up a device by UUID
      * @param uuid UUID
      * @return
@@ -115,6 +115,13 @@ public interface DicomConfiguration {
     String[] listDeviceNames() throws ConfigurationException;
 
     /**
+     * Returns all AE names from all devices from the configuration backend
+     * @return AE names
+     * @throws org.dcm4che3.conf.core.api.ConfigurationException
+     */
+    List<String> listAllAETitles() throws ConfigurationException;
+
+    /**
      * Invalidates any present cached state for the configuration storage view of the client.
      * There is no guarantee whether the devices accessed afterwards will be re-loaded lazily or eagerly.
      *
@@ -135,14 +142,14 @@ public interface DicomConfiguration {
     /**
      * Provides support for batching configuration changes.
      * </p>
-     * The method implementation must ensure that the batch-changes are executed within a transaction.
-     * The implementation may decide to run the changes either in 
+     * It is guaranteed that
      * <ul>
-     * <li>the context of an already existing transaction</li>
-     * <li>the context of a new transaction</li>
+     * <li>All configuration reads and writes in a batch are performed within a single transaction, i.e. the changes are atomic and performed in READ COMMITTED isolation</li>
+     * <li>When this method is called, an ongoing transaction (in case there is one) will be SUSPENDED. The batch will ALWAYS be executed in a SEPARATE transaction.</li>
+     * <li>At most ONE batch is executed at the same time in the whole cluster (synchronized with a database lock)</li>
      * </ul>
      * 
-     * @param dicomConfigBatch Configuration batch change to execute
+     * @param dicomConfigBatch Configuration batch to execute
      */
     void runBatch(DicomConfigBatch dicomConfigBatch);
     

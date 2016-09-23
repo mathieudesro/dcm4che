@@ -78,6 +78,7 @@ public class Mysql {
                     }
                 }
                 statement.close();
+                connection.close();
             }
           
         } catch (ClassNotFoundException | SQLException | IllegalAccessException | InstantiationException | IOException ex) {

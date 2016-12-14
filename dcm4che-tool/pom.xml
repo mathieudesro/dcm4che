@@ -42,7 +42,7 @@
   <parent>
     <artifactId>dcm4che-parent</artifactId>
     <groupId>org.dcm4che</groupId>
-    <version>3.3.8-SNAPSHOT</version>
+    <version>3.3.9-SNAPSHOT</version>
   </parent>
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.dcm4che.tool</groupId>
@@ -77,6 +77,7 @@
     <module>dcm4che-tool-stgcmtscu</module>
     <module>dcm4che-tool-storescp</module>
     <module>dcm4che-tool-storescu</module>
+    <module>dcm4che-tool-swappxdata</module>
     <module>dcm4che-tool-xml2dcm</module>
     <module>dcm4che-tool-xml2hl7</module>
     <module>dcm4che-tool-xml2prefs</module>

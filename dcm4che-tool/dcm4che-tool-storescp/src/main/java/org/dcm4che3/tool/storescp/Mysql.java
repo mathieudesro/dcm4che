@@ -42,7 +42,8 @@ public class Mysql {
                     if (resultSet.getInt(1) > 0){
                         String query = "UPDATE session "
                                 + "SET uid=?, "
-                                + "patientid=?, "
+                                + "patient_name=?, "
+                                + "patient_id=?, "
                                 + "gid=?, "
                                 + "studydate=?, "
                                 + "available=?, "
@@ -51,17 +52,19 @@ public class Mysql {
 
                         statement = connection.prepareStatement(query);
                         statement.setString(1, session.getUid());
-                        statement.setString(2, session.getPatientId());
-                        statement.setString(3, session.getGid());
-                        statement.setString(4, session.getStudyDate());
-                        statement.setBoolean(5,session.getAvailable());
-                        statement.setString(6, session.toJson());
-                        statement.setString(7, session.getUid());
+                        statement.setString(2, session.getPatientName());
+                        statement.setString(3, session.getPatientId());
+                        statement.setString(4, session.getGid());
+                        statement.setString(5, session.getStudyDate());
+                        statement.setBoolean(6,session.getAvailable());
+                        statement.setString(7, session.toJson());
+                        statement.setString(8, session.getUid());
                         statement.executeUpdate();                        
                     }
                     else{
                         String query = "INSERT INTO session (uid, "
-                                + "patientid, "
+                                + "patient_name=?, "                                
+                                + "patient_id, "
                                 + "gid, "
                                 + "studydate, "
                                 + "available, "
@@ -69,11 +72,12 @@ public class Mysql {
 
                         statement = connection.prepareStatement(query);
                         statement.setString(1, session.getUid());
-                        statement.setString(2, session.getPatientId());
-                        statement.setString(3, session.getGid());
-                        statement.setString(4, session.getStudyDate());
-                        statement.setBoolean(5, session.getAvailable());
-                        statement.setString(6, session.toJson());
+                        statement.setString(2, session.getPatientName());
+                        statement.setString(3, session.getPatientId());
+                        statement.setString(4, session.getGid());
+                        statement.setString(5, session.getStudyDate());
+                        statement.setBoolean(6, session.getAvailable());
+                        statement.setString(7, session.toJson());
                         statement.executeUpdate();                                        
                     }
                 }

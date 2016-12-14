@@ -123,8 +123,8 @@ public class Session {
             statistics.incrementNumberOfFilesAndAddDiskUsageInBit(file.toFile().length());
             statistics.addEchoesNumber(attrs.getString(Tag.EchoTime));
             String seriesNumber = attrs.getString(Tag.SeriesNumber);
-            String protocoleName = attrs.getString(Tag.ProtocolName);
-            sequence.putIfAbsent("SeriesDescription", attrs.getString(Tag.SeriesDescription));
+            String seriesDescription = attrs.getString(Tag.SeriesDescription);
+            sequence.putIfAbsent("SeriesDescription", seriesDescription);
             sequence.putIfAbsent("SeriesType", attrs.getString(Tag.SeriesType));
             sequence.putIfAbsent("SequenceName", attrs.getString(Tag.SequenceName));
             sequence.putIfAbsent("SeriesDate", attrs.getString(Tag.SeriesDate));
@@ -142,8 +142,8 @@ public class Session {
             sequence.putIfAbsent("ImageOrientationPatient", attrs.getString(Tag.ImageOrientationPatient));
             sequence.putIfAbsent("ImagePositionPatient", attrs.getString(Tag.ImagePositionPatient));
             sequence.putIfAbsent("SeriesNumber", seriesNumber);
-            sequence.putIfAbsent("ProtocolName", protocoleName);
-            sequence.putIfAbsent("name", String.format("%02d",Integer.parseInt(seriesNumber))+"-"+protocoleName);
+            sequence.putIfAbsent("ProtocolName", attrs.getString(Tag.ProtocolName));
+            sequence.putIfAbsent("name", String.format("%02d",Integer.parseInt(seriesNumber))+"-"+seriesDescription);
             sequence.putIfAbsent("checked", false);
             sequence.putIfAbsent("iconCls", "task");
             sequence.putIfAbsent("leaf", true);
@@ -169,6 +169,10 @@ public class Session {
         return (String)table.get("PatientID");
     }   
 
+    public String getPatientName(){
+        return (String)table.get("PatientName");
+    }
+    
     public String getGid(){        
         return (String)table.get("AccessionNumber");
     }    

@@ -45,19 +45,21 @@
     <version>3.3.9-SNAPSHOT</version>
     <relativePath>..</relativePath>
   </parent>
-  <artifactId>dcm4che-tool-hl7pix</artifactId>
-  <name>dcm4che-tool-hl7pix</name>
-  <description>Queries a PIX Manager for a list of corresponding patient identifiers</description>
+  <artifactId>dcm4che-tool-ianscu</artifactId>
+  <name>dcm4che-tool-ianscu</name>
+  <description>DICOM Instance Availability Notification SCU</description>
   <dependencies>
+    <dependency>
+      <groupId>org.dcm4che</groupId>
+      <artifactId>dcm4che-core</artifactId>
+      <version>${project.version}</version>
+      <scope>compile</scope>
+    </dependency>
     <dependency>
       <groupId>org.dcm4che</groupId>
       <artifactId>dcm4che-net</artifactId>
       <version>${project.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.dcm4che</groupId>
-      <artifactId>dcm4che-hl7</artifactId>
-      <version>${project.version}</version>
+      <scope>compile</scope>
     </dependency>
     <dependency>
       <groupId>org.dcm4che.tool</groupId>
@@ -68,7 +70,7 @@
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-log4j12</artifactId>
-      <version>1.7.22</version>
+      <version>1.6.1</version>
       <scope>runtime</scope>
     </dependency>
   </dependencies>

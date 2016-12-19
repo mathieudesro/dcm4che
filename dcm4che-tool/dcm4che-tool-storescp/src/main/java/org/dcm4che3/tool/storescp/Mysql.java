@@ -63,12 +63,12 @@ public class Mysql {
                     }
                     else{
                         String query = "INSERT INTO session (uid, "
-                                + "patient_name=?, "                                
+                                + "patient_name, "                                
                                 + "patient_id, "
                                 + "gid, "
                                 + "studydate, "
                                 + "available, "
-                                + "metadata) VALUES(?,?,?,?,?,?)";
+                                + "metadata) VALUES(?,?,?,?,?,?,?)";
 
                         statement = connection.prepareStatement(query);
                         statement.setString(1, session.getUid());

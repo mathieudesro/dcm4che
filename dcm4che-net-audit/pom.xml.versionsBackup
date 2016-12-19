@@ -2,18 +2,13 @@
   <modelVersion>4.0.0</modelVersion>
   <parent>
     <groupId>org.dcm4che</groupId>
-    <artifactId>dcm4che-osgi-parent</artifactId>
+    <artifactId>dcm4che-parent</artifactId>
     <version>3.3.9-SNAPSHOT</version>
   </parent>
-  <artifactId>dcm4che-osgi-rest</artifactId>
+  <artifactId>dcm4che-net-audit</artifactId>
+  <name>dcm4che-net-audit</name>
   <packaging>bundle</packaging>
-  <description>Sample Dicom REST Device</description>
   <build>
-    <resources>
-      <resource>
-        <directory>src/main/resources</directory>
-      </resource>
-    </resources>
     <plugins>
       <plugin>
         <groupId>org.apache.felix</groupId>
@@ -24,19 +19,19 @@
   </build>
   <dependencies>
     <dependency>
-      <groupId>org.jboss.spec.javax.ws.rs</groupId>
-      <artifactId>jboss-jaxrs-api_1.1_spec</artifactId>
-      <version>1.0.1.Final</version>
-    </dependency>
-    <dependency>
-      <groupId>org.osgi</groupId>
-      <artifactId>org.osgi.core</artifactId>
-      <version>6.0.0</version>
+      <groupId>org.dcm4che</groupId>
+      <artifactId>dcm4che-net</artifactId>
+      <version>${project.version}</version>
     </dependency>
     <dependency>
       <groupId>org.dcm4che</groupId>
-      <artifactId>dcm4che-osgi-device</artifactId>
+      <artifactId>dcm4che-audit</artifactId>
       <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.lmax</groupId>
+      <artifactId>disruptor</artifactId>
+      <version>3.3.2</version>
     </dependency>
   </dependencies>
 </project>

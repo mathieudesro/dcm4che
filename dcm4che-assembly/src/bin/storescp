@@ -46,8 +46,8 @@ CP="$CP:$DCM4CHE_HOME/lib/slf4j-api-1.7.5.jar"
 CP="$CP:$DCM4CHE_HOME/lib/slf4j-log4j12-1.7.5.jar"
 CP="$CP:$DCM4CHE_HOME/lib/log4j-1.2.17.jar"
 CP="$CP:$DCM4CHE_HOME/lib/commons-cli-1.2.jar"
-CP="$CP:$DCM4CHE_HOME/lib/gson-2.5.jar"
-CP="$CP:$DCM4CHE_HOME/lib/mysql-connector-java-5.1.38.jar"
+CP="$CP:$DCM4CHE_HOME/lib/gson-2.8.0.jar"
+CP="$CP:$DCM4CHE_HOME/lib/mysql-connector-java-6.0.5.jar"
 
 # For Cygwin, switch paths to Windows format before running java
 if $cygwin; then

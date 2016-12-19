@@ -17,7 +17,7 @@
    -
    - The Initial Developer of the Original Code is
    - Agfa Healthcare.
-   - Portions created by the Initial Developer are Copyright (C) 2012
+   - Portions created by the Initial Developer are Copyright (C) 2011
    - the Initial Developer. All Rights Reserved.
    -
    - Contributor(s):
@@ -40,36 +40,30 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <parent>
-    <artifactId>dcm4che-tool</artifactId>
-    <groupId>org.dcm4che.tool</groupId>
+    <artifactId>dcm4che-parent</artifactId>
+    <groupId>org.dcm4che</groupId>
     <version>3.3.9-SNAPSHOT</version>
-    <relativePath>..</relativePath>
   </parent>
-  <artifactId>dcm4che-tool-hl7pix</artifactId>
-  <name>dcm4che-tool-hl7pix</name>
-  <description>Queries a PIX Manager for a list of corresponding patient identifiers</description>
+  <artifactId>dcm4che-soundex</artifactId>
+  <name>dcm4che-soundex</name>
+  <description>Phonetic algorithms for fuzzy semantic matching</description>
+  <packaging>bundle</packaging>
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.felix</groupId>
+        <artifactId>maven-bundle-plugin</artifactId>
+        <extensions>true</extensions>
+      </plugin>
+    </plugins>
+  </build>
   <dependencies>
     <dependency>
-      <groupId>org.dcm4che</groupId>
-      <artifactId>dcm4che-net</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.dcm4che</groupId>
-      <artifactId>dcm4che-hl7</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.dcm4che.tool</groupId>
-      <artifactId>dcm4che-tool-common</artifactId>
-      <version>${project.version}</version>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>4.8.2</version>
+      <type>jar</type>
       <scope>compile</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-log4j12</artifactId>
-      <version>1.7.22</version>
-      <scope>runtime</scope>
     </dependency>
   </dependencies>
 </project>

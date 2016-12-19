@@ -49,6 +49,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.ResourceBundle;
 import java.util.UUID;
@@ -168,8 +169,10 @@ public class StowRS {
                 instance.mediaType = MetaDataType.NO_METADATA_DICOM;
             }
 
-            instance.files.addAll(cl.getArgList());
-
+            //instance.files.addAll(cl.getArgList());
+            for (Iterator<String> iter = cl.getArgList().iterator(); iter.hasNext();) {
+                instance.files.add(new File(iter.next()));
+            }
         } catch (Exception e) {
             LOG.error("Error: \n", e);
             e.printStackTrace();

@@ -45,9 +45,9 @@
     <version>3.3.9-SNAPSHOT</version>
     <relativePath>..</relativePath>
   </parent>
-  <artifactId>dcm4che-tool-hl7pix</artifactId>
-  <name>dcm4che-tool-hl7pix</name>
-  <description>Queries a PIX Manager for a list of corresponding patient identifiers</description>
+  <artifactId>dcm4che-tool-hl7snd</artifactId>
+  <name>dcm4che-tool-hl7snd</name>
+  <description>Send HL7 V2 messages using MLLP to HL7 receiver</description>
   <dependencies>
     <dependency>
       <groupId>org.dcm4che</groupId>
@@ -68,7 +68,7 @@
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-log4j12</artifactId>
-      <version>1.7.22</version>
+      <version>1.6.1</version>
       <scope>runtime</scope>
     </dependency>
   </dependencies>

@@ -53,6 +53,7 @@
   <modules>
     <module>dcm4che-tool-all</module>
     <module>dcm4che-tool-common</module>
+    <module>dcm4che-tool-dcmmrssub</module>
     <module>dcm4che-tool-dcm2dcm</module>
     <module>dcm4che-tool-dcm2jpg</module>
     <module>dcm4che-tool-dcm2xml</module>

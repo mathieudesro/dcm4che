@@ -121,6 +121,7 @@ public class Connection implements Serializable {
     public static final String TLS_RSA_WITH_NULL_SHA = "SSL_RSA_WITH_NULL_SHA";
     public static final String TLS_RSA_WITH_3DES_EDE_CBC_SHA = "SSL_RSA_WITH_3DES_EDE_CBC_SHA";
     public static final String TLS_RSA_WITH_AES_128_CBC_SHA = "TLS_RSA_WITH_AES_128_CBC_SHA";
+    private static final String[] DEFAULT_TLS_PROTOCOLS =  { "TLSv1.2", "TLSv1.1", "TLSv1" };
 
     private Device device;
 
@@ -176,6 +177,9 @@ public class Connection implements Serializable {
     @ConfigurableProperty(name = "dcmIdleTimeout", defaultValue = NO_TIMEOUT_STR)
     private int idleTimeout;
 
+    @ConfigurableProperty(name = "dcmSocketTimeout", defaultValue = NO_TIMEOUT_STR)
+    private int socketTimeout;
+
     @ConfigurableProperty(name = "dcmTCPCloseDelay", defaultValue = "50")
     private int socketCloseDelay = DEF_SOCKETDELAY;
 
@@ -216,7 +220,7 @@ public class Connection implements Serializable {
     private String httpProxyProviderVersion = ProxyService.DEFAULT_VERSION;
 
     @ConfigurableProperty(name = "dcmTLSProtocol")
-    private String[] tlsProtocols = { "TLSv1.2", "TLSv1.1", "TLSv1", "SSLv3"};
+    private String[] tlsProtocols = {};
 
     @ConfigurableProperty(name = "dcmBlacklistedHostname")
     private String[] blacklist = {};
@@ -282,6 +286,7 @@ public class Connection implements Serializable {
         setResponseTimeout(timeout);
         setRetrieveTimeout(timeout);
         setIdleTimeout(timeout);
+        setSocketTimeout(timeout);
     }
 
 
@@ -686,6 +691,16 @@ public class Connection implements Serializable {
         this.idleTimeout = idleTimeout;
     }
 
+    public final int getSocketTimeout() {
+        return socketTimeout;
+    }
+
+    public final void setSocketTimeout(int socketTimeout) {
+        if (socketTimeout < 0)
+            throw new IllegalArgumentException("timeout: " + socketTimeout);
+        this.socketTimeout = socketTimeout;
+    }
+
     /**
      * The TLS CipherSuites that are supported on this particular connection.
      * TLS CipherSuites shall be described using an RFC-2246 string
@@ -714,6 +729,10 @@ public class Connection implements Serializable {
 
     public final boolean isTls() {
         return tlsCipherSuites.length > 0;
+    }
+
+    public final String[] tlsProtocols() {
+        return tlsProtocols.length != 0 ? tlsProtocols : DEFAULT_TLS_PROTOCOLS;
     }
 
     public final String[] getTlsProtocols() {
@@ -931,6 +950,9 @@ public class Connection implements Serializable {
         }
         if (s.getTcpNoDelay() != tcpNoDelay) {
             s.setTcpNoDelay(tcpNoDelay);
+        }
+        if (s.getSoTimeout() != socketTimeout) {
+            s.setSoTimeout(socketTimeout);
         }
     }
 
@@ -1182,7 +1204,7 @@ public class Connection implements Serializable {
 //        s.setSoTimeout(connectTimeout);
 //        @SuppressWarnings("resource")
 //        String response = new HTTPResponse(s).toString();
-//        s.setSoTimeout(0);
+//        s.setSoTimeout(socketTimeout);
 //        if (!response.startsWith("HTTP/1.1 2"))
 //            throw new IOException("Unable to tunnel through " + s
 //                    + ". Proxy returns \"" + response + '\"');
@@ -1225,7 +1247,7 @@ public class Connection implements Serializable {
         SSLSocket ssl = (SSLSocket) sf.createSocket(s,
                 remoteConn.getHostname(), remoteConn.getPort(), true);
         ssl.setEnabledProtocols(
-                intersect(remoteConn.tlsProtocols, tlsProtocols));
+                intersect(remoteConn.tlsProtocols(), tlsProtocols()));
         ssl.setEnabledCipherSuites(
                 intersect(remoteConn.tlsCipherSuites, tlsCipherSuites));
         ssl.startHandshake();
@@ -1247,8 +1269,8 @@ public class Connection implements Serializable {
         if (!isTls())
             return !remoteConn.isTls();
 
-        return hasCommon(remoteConn.tlsProtocols, tlsProtocols)
-                && hasCommon(remoteConn.tlsCipherSuites, tlsCipherSuites);
+        return hasCommon(remoteConn.tlsProtocols(), tlsProtocols())
+            && hasCommon(remoteConn.tlsCipherSuites, tlsCipherSuites);
     }
 
     private boolean hasCommon(String[] ss1, String[] ss2) {
@@ -1312,6 +1334,7 @@ public class Connection implements Serializable {
         setResponseTimeout(from.responseTimeout);
         setRetrieveTimeout(from.retrieveTimeout);
         setIdleTimeout(from.idleTimeout);
+        setSocketTimeout(from.socketTimeout);
         setSocketCloseDelay(from.socketCloseDelay);
         setSendBufferSize(from.sendBufferSize);
         setReceiveBufferSize(from.receiveBufferSize);

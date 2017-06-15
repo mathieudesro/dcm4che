@@ -44,9 +44,9 @@
     <version>3.3.9-SNAPSHOT</version>
   </parent>
   <modelVersion>4.0.0</modelVersion>
-  <artifactId>dcm4che-tool-dcmmrssub</artifactId>
-  <name>dcm4che-tool-dcmmrssub</name>
-  <description>Substract two spectroscopy dicom images</description>
+  <artifactId>dcm4che-tool-rearrange</artifactId>
+  <name>dcm4che-tool-rearrange</name>
+  <description>Reorganize a folder of dicoms image the Royal way</description>
   <dependencies>
     <dependency>
       <groupId>org.dcm4che</groupId>

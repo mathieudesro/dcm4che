@@ -36,7 +36,7 @@
  *
  * ***** END LICENSE BLOCK ***** */
 
-package org.dcm4che3.tool.dcmmrssub;
+package org.dcm4che3.tool.rearrange;
 
 import java.io.File;
 import java.io.IOException;
@@ -55,13 +55,14 @@ import org.dcm4che3.io.DicomOutputStream;
 /**
  * @author Mathieu Desrtosiers <mathieu.desrosiers@theroyal.ca>
  */
-public class DcmMrsSub {
+public class Rearrange {
 
     private static ResourceBundle rb =
         ResourceBundle.getBundle("org.dcm4che3.tool.dcmmrssub.messages");
   
     public static void main(String[] args) {
-        
+        System.out.println("Wookiesjjj ");
+
     }
 }
         /*

@@ -255,6 +255,19 @@
       <artifactId>dcm4che-tool-jpg2dcm</artifactId>
       <version>${project.version}</version>
     </dependency>
+    
+    <!--The Royal custum tools -->
+    <dependency>
+      <groupId>org.dcm4che.tool</groupId>
+      <artifactId>dcm4che-tool-dcmmrssub</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    
+    <dependency>
+      <groupId>org.dcm4che.tool</groupId>
+      <artifactId>dcm4che-tool-rearrange</artifactId>
+      <version>${project.version}</version>
+    </dependency>
 
   </dependencies>
 </project>

@@ -150,8 +150,7 @@ public class Rearrange {
                         .append(String.format("%04d", Integer.parseInt(instanceNumber)))
                         .append(".dcm");
 
-                System.out.println("--start--");
-                System.out.println(file);                                  
+                System.out.println("convert : "+ file);                                  
                 File outputDicomFile = new File(dicomFilename.toString());
                 File outputDicomDirectory = outputDicomFile.getParentFile();
                 if (! outputDicomDirectory.exists()){
@@ -159,8 +158,8 @@ public class Rearrange {
                     outputDicomDirectory.mkdirs();
                 }
                 Files.copy(file, outputDicomFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-                System.out.println(dicomFilename.toString());
-                System.out.println("--end--");
+                System.out.println(" to : " +dicomFilename.toString());
+                
             }
             else{
                 System.out.println(rb.getString("not_siemens"));            

@@ -220,6 +220,5 @@ public class Session {
             Logger.getLogger(Session.class.getName()).log(Level.SEVERE, null, ex);
         }
         return map;
-    
     }   
 }

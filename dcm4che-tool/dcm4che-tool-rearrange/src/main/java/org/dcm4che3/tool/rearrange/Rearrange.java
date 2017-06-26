@@ -38,18 +38,27 @@
 
 package org.dcm4che3.tool.rearrange;
 
+import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.util.HashMap;
 import java.util.ResourceBundle;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Stream;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.dcm4che3.data.Attributes;
+import org.dcm4che3.data.Tag;
+import org.dcm4che3.io.DicomInputStream;
 import org.dcm4che3.tool.common.CLIUtils;
-import org.dcm4che3.io.DicomInputStream; 
-import org.dcm4che3.io.DicomOutputStream;
 
 
 /**
@@ -57,138 +66,146 @@ import org.dcm4che3.io.DicomOutputStream;
  */
 public class Rearrange {
 
-    private static ResourceBundle rb =
-        ResourceBundle.getBundle("org.dcm4che3.tool.dcmmrssub.messages");
+    private static ResourceBundle rb = ResourceBundle.getBundle("org.dcm4che3.tool.rearrange.messages");
   
     public static void main(String[] args) {
-        System.out.println("Wookiesjjj ");
-
-    }
-}
-        /*
-        try {
+        
             CommandLine commandLine = parseComandLine(args);
             if(commandLine.getArgs().length == 2){
+                File inputDirectory = new File(commandLine.getArgs()[0]);
+                File outputDirectory = new File(commandLine.getArgs()[1]);
                 
-       DicomInputStream din = null;
-        try {
-            din = new DicomInputStream(new File(path));
-            dcmObj = din.readDicomObject();
-        }
-        catch (IOException e) {
-            e.printStackTrace();
-            return;
-        }
-        finally {
-            try {
-                din.close();
-            }
-            catch (IOException ignore) {
-            }
-        }
-        System.out.println("Now reading DCM File");                
-                
-                System.out.println("Where is the new DCM file being saved to? Please enter directory (Include File name and Extension): ");
-                String directoryPath = input.next();
-                File out = new File(directoryPath);
-                DicomOutputStream dos = new DicomOutputStream(new BufferedOutputStream(new FileOutputStream(out)));
-                dos.writeDicomFile(dcmObj);
-
-                CloseUtils.safeClose(dos);               
-                
-                */
-                
-                
-                /*
-                //7fr1,1010
-                File dicomFile1 = new File(commandLine.getArgs()[0]);
-                File dicomFile2 = new File(commandLine.getArgs()[1]);
-
-                DicomInputStream dicom1 = new DicomInputStream(dicomFile1);
-                DicomInputStream dicom2 = new DicomInputStream(dicomFile2);
-                DicomOutputStream output1 = new DicomOutputStream(new File(commandLine.getArgs()[0].replace(".dcm", "-subtract-8bits.dcm")));  
-                //DicomOutputStream output2 = new DicomOutputStream(new File(commandLine.getArgs()[0].replace(".dcm", "-subtract-32bits.dcm")));  
-
-
-                Attributes meta = dicom1.readFileMetaInformation();
-                Attributes attrs1 = dicom1.readDataset(-1, -1);
-                */
-                //Attributes attrs2 = dicom2.readDataset(-1, -1);
-
-                //dicom1.readAttributes(attrs1, 0, 0);
-                //dicom2.readAttributes(attrs2, 0, 0);
-                
-                
-                
-/*
-                byte[] array1 = attrs1.getBytes(2145456144);
-                byte[] array2 = attrs2.getBytes(2145456144);           
-                byte[] results = new byte[array1.length];
-
-                for(int i =0; i< array1.length; i++){
-                    results[i] = (byte) (array1[i]- array2[i]);
+                if(inputDirectory.exists() && inputDirectory.list().length != 0){
+                    if(outputDirectory.exists() &&
+                        outputDirectory.isDirectory() &&
+                        outputDirectory.list().length == 0){
+                        try {
+                            Stream<Path> paths = Files.walk(Paths.get(inputDirectory.getPath()));
+                            paths
+                                .filter((path) -> !path.toFile().isDirectory())
+                                .forEach(path -> {
+                                    readTagsAndConvert(path, outputDirectory);
+                                });                                            
+                        } catch (IOException ex) {
+                            Logger.getLogger(Rearrange.class.getName()).log(Level.SEVERE, null, ex);
+                        }
+                    }
+                    else{
+                        System.out.println(rb.getString("output_missing")+outputDirectory.toString());                
+                    }
                 }
-
-                int j = 0;
-                int[] arrayOfInt1 = new int[array1.length/4];
-                int[] arrayOfInt2 = new int[array2.length/4];
-                int[] results2 = new int[arrayOfInt1.length];
-
-                for(int i =0; i< arrayOfInt1.length; i++){
-                    j = i*4;
-                    arrayOfInt1[i]= (array1[0]<<24)&0xff000000|
-                                        (array1[1]<<16)&0x00ff0000|
-                                        (array1[2]<< 8)&0x0000ff00|
-                                        (array1[3]<< 0)&0x000000ff;    
-
-                    arrayOfInt2[i]= (array2[0]<<24)&0xff000000|
-                                        (array2[1]<<16)&0x00ff0000|
-                                        (array2[2]<< 8)&0x0000ff00|
-                                        (array2[3]<< 0)&0x000000ff;    
+                else{
+                    System.out.println(rb.getString("input_error")+inputDirectory.toString());
                 }
-                for(int i =0; i< arrayOfInt1.length; i++){
-                    results2[i] = arrayOfInt1[i]- arrayOfInt2[i];
-                }                
-
-                ByteBuffer byteBuffer = ByteBuffer.allocate(results2.length * 4);        
-                IntBuffer intBuffer = byteBuffer.asIntBuffer();
-                intBuffer.put(results2);
-
-
-                attrs1.setBytes(2145456144, VR.OB, results);
-                attrs2.setBytes(2145456144, VR.OB, byteBuffer.array());
-*//*
-                output1.writeDataset(meta, attrs1);
-                output1.close();
-
-
-                //output2.writeDataset(meta, attrs2);
-                //output2.close();            
             }
-           
-        } catch (IOException ex) {
-            Logger.getLogger(DcmMrsSub.class.getName()).log(Level.SEVERE, null, ex);
-        }
-
+        
     }
+    
+    private static void readTagsAndConvert(final Path file, final File outputDirectory){
+        try {
+            DicomInputStream dicom = null;
+            dicom = new DicomInputStream(file.toFile());
+            
+            Attributes attrs = dicom.readDataset(-1, -1);
+            String manufacturer = attrs.getString(Tag.Manufacturer);
+            if (manufacturer.contains("SIEMENS")){
+                HashMap values = extractASCCONVAttributes(file);
+                
+                String numberOfEchoes = (String) values.get("NumberOfEchoes");
+                String patientName = attrs.getString(Tag.PatientName);
+                String echoTime = attrs.getString(Tag.EchoTime);
+                String seriesNumber = attrs.getString(Tag.SeriesNumber);
+                String seriesDescription = attrs.getString(Tag.SeriesDescription);
+                String modality = attrs.getString(Tag.Modality);
+                String instanceNumber = attrs.getString(Tag.InstanceNumber);
+    /*
+                System.out.println("--start--");            
+                System.out.println(patientName);
+                System.out.println(echoTime);
+                System.out.println(seriesNumber);
+                System.out.println(seriesDescription);
+                System.out.println(modality);
+                System.out.println(instanceNumber);
+                System.out.println(numberOfEchoes);
+                System.out.println("--end--");
+    */            
+                StringBuilder dicomFilename = new StringBuilder();
+                dicomFilename.append(outputDirectory.toString())
+                                .append("/")
+                                .append(patientName)
+                                .append("/")
+                                .append(String.format("%02d", Integer.parseInt(seriesNumber)))
+                                .append("-")
+                                .append(seriesDescription);
+
+                if(!"1".contains(numberOfEchoes)){
+                    System.out.println("--multiple echoes--");
+                    dicomFilename.append("/echo_")
+                            //format me
+                            .append(echoTime);
+                }
+                dicomFilename.append("/")                    
+                        .append(patientName)
+                        .append("-")
+                        .append(String.format("%04d", Integer.parseInt(instanceNumber)))
+                        .append(".dcm");
+
+                System.out.println("--start--");
+                System.out.println(file);                                  
+                File outputDicomFile = new File(dicomFilename.toString());
+                File outputDicomDirectory = outputDicomFile.getParentFile();
+                if (! outputDicomDirectory.exists()){
+                    System.out.println("directory :"+outputDicomDirectory.toString());
+                    outputDicomDirectory.mkdirs();
+                }
+                Files.copy(file, outputDicomFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                System.out.println(dicomFilename.toString());
+                System.out.println("--end--");
+            }
+            else{
+                System.out.println(rb.getString("not_siemens"));            
+            }
+            
+            
+        } catch (IOException ex) {
+            Logger.getLogger(Rearrange.class.getName()).log(Level.SEVERE, null, ex);
+        }
+            
+    }     
     
     @SuppressWarnings("static-access")
     private static CommandLine parseComandLine(String[] args){
         try {
             Options opts = new Options();
             CLIUtils.addCommonOptions(opts);
-            /*opts.addOption(OptionBuilder
-            .withLongOpt("width")
-            .hasArg()
-            .withArgName("col")
-            .withDescription(rb.getString("width"))
-            .create("w"));
-            *//*
-            return CLIUtils.parseComandLine(args, opts, rb, DcmMrsSub.class);
+            return CLIUtils.parseComandLine(args, opts, rb, Rearrange.class);
         } catch (ParseException ex) {
-            Logger.getLogger(DcmMrsSub.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(Rearrange.class.getName()).log(Level.SEVERE, null, ex);
         }
         return null;
-    }
+               
+    }    
+    
+    public static HashMap extractASCCONVAttributes(Path file){
+        try {
+            HashMap map = new HashMap();
+            
+            String text = new String(Files.readAllBytes(file), StandardCharsets.UTF_8);
+            
+            if(text.contains("### ASCCONV BEGIN ###")){
+                text = text.substring(text.lastIndexOf("### ASCCONV BEGIN ###")+1);
+                text = text.substring(0, text.indexOf("### ASCCONV END ###"));
+
+                for (String line: text.split("\n")){
+                    if(line.contains("lContrasts")){
+                        map.putIfAbsent("NumberOfEchoes", line.substring(line.lastIndexOf("=")+1).trim());
+                    }
+                }            
+            }
+            return map;
+        } catch (IOException ex) {
+            Logger.getLogger(Rearrange.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        return null;
+    }   
 }
-*/

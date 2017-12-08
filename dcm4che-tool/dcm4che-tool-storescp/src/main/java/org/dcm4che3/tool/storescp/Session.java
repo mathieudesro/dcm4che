@@ -143,7 +143,7 @@ public class Session {
             sequence.putIfAbsent("ImagePositionPatient", attrs.getString(Tag.ImagePositionPatient));
             sequence.putIfAbsent("SeriesNumber", seriesNumber);
             sequence.putIfAbsent("ProtocolName", attrs.getString(Tag.ProtocolName));
-            sequence.putIfAbsent("name", String.format("%02d",Integer.parseInt(seriesNumber))+"-"+seriesDescription);
+            sequence.putIfAbsent("name", String.format("%02d",Integer.parseInt(seriesNumber))+"-"+cleanInvalidPathCharacters(seriesDescription));
             sequence.putIfAbsent("checked", false);
             sequence.putIfAbsent("iconCls", "task");
             sequence.putIfAbsent("leaf", true);
@@ -198,6 +198,10 @@ public class Session {
     public int lenght(){
         return toJson().length();    
     }  
+    
+    public String cleanInvalidPathCharacters(String string){
+        return string.replaceAll("[<>:\"/\\|?*]","");
+    }
     
     public HashMap extractASCCONVAttributes(Path file){
         HashMap map = new HashMap();
